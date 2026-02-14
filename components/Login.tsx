@@ -10,7 +10,7 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [selectedRole, setSelectedRole] = useState<'OM' | 'ADMIN'>('OM');
   const [credentials, setCredentials] = useState<UserCredential[]>([]);
-  const [auxData, setAuxData] = useState<AuxiliarData | null>(null);
+  const [adminConfig, setAdminConfig] = useState<{email: string, password: string}>({email: '', password: ''});
   const [selectedOM, setSelectedOM] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -26,16 +26,19 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           fetchAuxiliar()
         ]);
         
-        // Garantir que estamos pegando a lista completa de usuários
         const allUsers = usersRes.users;
         setCredentials(allUsers);
-        setAuxData({ ...auxRes, adminEmail: usersRes.adminEmail });
+        
+        // Configura credenciais de Admin vindas de Usuarios (usersRes)
+        setAdminConfig({
+          email: usersRes.adminEmail,
+          password: usersRes.adminPassword || ''
+        });
         
         // Lógica de persistência da OM
         const savedOM = localStorage.getItem('lastSelectedOM');
         const defaultOM = allUsers.length > 0 ? allUsers[0].om : '';
         
-        // Se existe uma OM salva e ela é válida na lista atual, seleciona ela
         if (savedOM && allUsers.some(u => u.om === savedOM)) {
           setSelectedOM(savedOM);
         } else {
@@ -63,14 +66,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
     if (selectedRole === 'ADMIN') {
       const inputPass = password.trim();
-      // Pega a senha do servidor e remove espaços. Se vier vazia, define como string vazia.
-      const serverAdminPass = (auxData?.adminPassword || '').trim();
+      const serverAdminPass = adminConfig.password.trim();
       
-      // Se tiver senha configurada na planilha, usa ela. Senão usa 'admin'.
+      // Se a senha na planilha estiver vazia, usa 'admin' como fallback
       const effectivePass = serverAdminPass !== '' ? serverAdminPass : 'admin';
       
       if (inputPass === effectivePass) {
-        onLogin({ name: 'Administrador', role: UserRole.ADMIN, email: auxData?.adminEmail });
+        onLogin({ name: 'Administrador', role: UserRole.ADMIN, email: adminConfig.email });
       } else {
         setError(serverAdminPass === '' ? 'Senha padrão: admin (H2 vazia)' : 'Senha administrativa incorreta.');
       }
@@ -79,9 +81,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
     const userEntry = credentials.find(u => u.om === selectedOM && u.senha.trim() === password.trim());
     if (userEntry) {
-      // Salva novamente ao logar com sucesso para garantir
       localStorage.setItem('lastSelectedOM', selectedOM);
-      
       onLogin({ 
         name: `Oficial ${selectedOM}`, 
         role: UserRole.OM, 

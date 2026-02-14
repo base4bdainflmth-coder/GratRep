@@ -33,12 +33,15 @@ export const fetchMapData = async (): Promise<MapData[]> => {
   })).filter(item => item.id);
 };
 
-export const fetchUsers = async (): Promise<{users: UserCredential[], adminEmail: string}> => {
+export const fetchUsers = async (): Promise<{users: UserCredential[], adminEmail: string, adminPassword?: string}> => {
   const rows = await fetchCSV(GID_USUARIOS);
   if (rows.length < 2) return { users: [], adminEmail: '' };
   
   // Admin Email em G2 (Fila 1, Col G = Index 6)
   const adminEmail = rows[1]?.[6] || '';
+  
+  // Admin Senha em H2 (Fila 1, Col H = Index 7)
+  const adminPassword = rows[1]?.[7] || '';
   
   const users = rows.slice(1).map(r => ({
     om: r[0] || '',
@@ -47,22 +50,16 @@ export const fetchUsers = async (): Promise<{users: UserCredential[], adminEmail
     telefone: r[3] || ''
   })).filter(u => u.om && u.senha);
   
-  return { users, adminEmail };
+  return { users, adminEmail, adminPassword };
 };
 
 export const fetchAuxiliar = async (): Promise<AuxiliarData> => {
   const rows = await fetchCSV(GID_AUXILIAR);
   if (rows.length < 2) return { oms: [], mapas: [], eventos: [], adminEmail: '' };
 
-  // Captura segura da senha em H2 (Index 7)
-  // Verifica se a linha existe e se tem colunas suficientes
-  let adminPassword = '';
-  if (rows[1] && rows[1].length > 7) {
-    adminPassword = rows[1][7];
-  }
-
   return {
-    adminPassword: adminPassword,
+    // Não busca mais senha daqui, pois foi movida para fetchUsers (Aba Usuarios)
+    adminPassword: '', 
     // OM: O3:O15 -> Fila 2 em diante (Index 2), Col O (Index 14)
     oms: rows.slice(2, 15).map(r => r[14]).filter(Boolean),
     // Mapa: I2:I -> Fila 1 em diante (Index 1), Col I (Index 8)
