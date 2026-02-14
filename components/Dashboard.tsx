@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { fetchMapData, fetchAuxiliar, submitNewMap } from '../services/dataService';
 import { MapData, User, UserRole, AuxiliarData } from '../types';
 import { 
   Search, Filter, FileSpreadsheet, AlertCircle, CheckCircle2, 
   RefreshCcw, LogOut, Building2, Eye, Plus, X, Send, Loader2, Calendar, ClipboardList, Info,
-  Printer, FileText
+  Printer, FileText, ChevronDown, Check, Square, CheckSquare
 } from 'lucide-react';
 import StatCard from './StatCard';
 import StatusBadge from './StatusBadge';
@@ -16,7 +16,9 @@ interface DashboardProps {
   onLogout: () => void;
 }
 
-// Função auxiliar para formatar YYYY-MM-DD para DD/MM/YY
+// --- Funções Auxiliares ---
+
+// Formatar YYYY-MM-DD para DD/MM/YY
 const formatDateToBR = (dateStr: string) => {
   if (!dateStr) return '';
   const parts = dateStr.split('-');
@@ -24,17 +26,117 @@ const formatDateToBR = (dateStr: string) => {
   return `${parts[2]}/${parts[1]}/${parts[0].slice(2)}`;
 };
 
+// Converter string de moeda (1.200,50) para number float
+const parseCurrency = (valueStr: string): number => {
+  if (!valueStr) return 0;
+  // Remove R$, espaços e pontos de milhar, troca vírgula por ponto
+  const cleanStr = valueStr.replace(/[R$\s.]/g, '').replace(',', '.');
+  const num = parseFloat(cleanStr);
+  return isNaN(num) ? 0 : num;
+};
+
+// Formatar number para moeda BRL
+const formatCurrency = (val: number): string => {
+  return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
+
+// Extrair ano do ID do mapa (Ex: "JAN/2024 - ...")
+const extractYear = (mapId: string): string => {
+  if (!mapId) return '';
+  // Tenta pegar padrão /YYYY
+  const match = mapId.match(/\/(\d{4})/);
+  if (match) return match[1];
+  return '';
+};
+
+// --- Componente MultiSelect ---
+
+interface MultiSelectProps {
+  label: string;
+  options: string[];
+  selected: string[];
+  onChange: (selected: string[]) => void;
+  icon?: React.ElementType;
+}
+
+const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onChange, icon: Icon }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleOption = (option: string) => {
+    if (selected.includes(option)) {
+      onChange(selected.filter(item => item !== option));
+    } else {
+      onChange([...selected, option]);
+    }
+  };
+
+  return (
+    <div className="relative flex-1 lg:w-40" ref={containerRef}>
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full pl-8 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs flex items-center justify-between hover:bg-gray-100 transition truncate"
+      >
+        <span className="truncate">
+          {selected.length === 0 ? label : `${selected.length} selecionado(s)`}
+        </span>
+        <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
+        {Icon && <Icon className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />}
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto p-1">
+          {options.length === 0 ? (
+            <div className="p-2 text-xs text-gray-400 text-center">Nenhuma opção</div>
+          ) : (
+            options.map(option => {
+              const isSelected = selected.includes(option);
+              return (
+                <div 
+                  key={option} 
+                  onClick={() => toggleOption(option)}
+                  className={`flex items-center px-3 py-2 cursor-pointer rounded-md text-xs transition ${isSelected ? 'bg-army-50 text-army-900' : 'hover:bg-gray-50 text-gray-700'}`}
+                >
+                  <div className={`mr-2 ${isSelected ? 'text-army-600' : 'text-gray-300'}`}>
+                    {isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                  </div>
+                  <span className="truncate">{option}</span>
+                </div>
+              );
+            })
+          )}
+          {selected.length > 0 && (
+            <div 
+              onClick={() => { onChange([]); setIsOpen(false); }}
+              className="border-t border-gray-100 mt-1 pt-1 p-2 text-center text-[10px] text-red-500 font-bold cursor-pointer hover:bg-red-50 rounded"
+            >
+              LIMPAR FILTROS
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Componentes Existentes (Modais) ---
+
 const DetailsModal: React.FC<{ data: MapData; onClose: () => void }> = ({ data, onClose }) => {
-  
-  // Função auxiliar para encontrar valor baseado no nome da coluna (busca parcial)
   const getVal = (patterns: string[]) => {
     if (!data.rawHeaders || !data.rawData) return '-';
-    
-    // Tenta encontrar o índice da coluna que contenha algum dos padrões
     const index = data.rawHeaders.findIndex(header => 
       header && patterns.some(p => header.toLowerCase().includes(p.toLowerCase()))
     );
-
     return index >= 0 ? (data.rawData[index] || '-') : '-';
   };
 
@@ -48,8 +150,6 @@ const DetailsModal: React.FC<{ data: MapData; onClose: () => void }> = ({ data, 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
-        
-        {/* Cabeçalho do Modal */}
         <div className="p-6 border-b border-gray-100 flex justify-between items-start bg-gray-50">
           <div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">Detalhes Completos</h3>
@@ -64,10 +164,7 @@ const DetailsModal: React.FC<{ data: MapData; onClose: () => void }> = ({ data, 
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X className="w-5 h-5" /></button>
         </div>
-
         <div className="overflow-y-auto p-6 space-y-6 bg-white">
-          
-          {/* BLOCO 1: DADOS GERAIS (Cinza/Padrão) */}
           <section className="bg-gray-50 rounded-xl p-4 border border-gray-200">
             <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 border-b border-gray-200 pb-2">Dados do Mapa e Envio</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -81,8 +178,6 @@ const DetailsModal: React.FC<{ data: MapData; onClose: () => void }> = ({ data, 
               <Field label="Dias (Evento -> Remessa)" patterns={['Remsessa Bda', 'Dias Evento']} />
             </div>
           </section>
-
-          {/* BLOCO 2: TRÂMITE DE SAÍDA (Azul Claro) */}
           <section className="bg-sky-50 rounded-xl p-4 border border-sky-100">
              <h4 className="text-xs font-bold text-sky-600 uppercase tracking-widest mb-4 border-b border-sky-200 pb-2">Trâmite Brigada &rarr; DE</h4>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -92,8 +187,6 @@ const DetailsModal: React.FC<{ data: MapData; onClose: () => void }> = ({ data, 
                 <Field label="Dias (Recb -> Remessa DE)" patterns={['Remsessa DE', 'Dias Recb']} />
              </div>
           </section>
-
-           {/* BLOCO 3: TRÂMITE DE -> CML (Índigo) */}
            <section className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
              <h4 className="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-4 border-b border-indigo-200 pb-2">Trâmite DE &rarr; CML</h4>
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -102,8 +195,6 @@ const DetailsModal: React.FC<{ data: MapData; onClose: () => void }> = ({ data, 
                 <Field label="Dias (Remessa DE -> CML)" patterns={['Remsessa DE -> CML', 'Dias Remsessa DE']} />
              </div>
           </section>
-
-          {/* BLOCO 4: DEVOLUÇÃO (Vermelho) */}
           {(getVal(['Nr DIEx Devol', 'Nr DIEx Devolução']) !== '-' || data.situacao.toLowerCase().includes('devolvido')) && (
             <section className="bg-red-50 rounded-xl p-4 border border-red-200 ring-1 ring-red-100">
               <h4 className="text-xs font-bold text-red-700 uppercase tracking-widest mb-4 border-b border-red-200 pb-2 flex items-center">
@@ -117,8 +208,6 @@ const DetailsModal: React.FC<{ data: MapData; onClose: () => void }> = ({ data, 
               </div>
             </section>
           )}
-
-          {/* BLOCO 5: PAGAMENTO (Verde) */}
           <section className="bg-emerald-50 rounded-xl p-4 border border-emerald-200 ring-1 ring-emerald-100">
              <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-widest mb-4 border-b border-emerald-200 pb-2 flex items-center">
                <CheckCircle2 className="w-4 h-4 mr-2" /> Autorização de Pagamento
@@ -133,15 +222,11 @@ const DetailsModal: React.FC<{ data: MapData; onClose: () => void }> = ({ data, 
                 <Field label="Dias (DE -> CML -> Autz)" patterns={['Dias Enc DE -> CML -> Autz Pg']} />
              </div>
           </section>
-
-          {/* BLOCO 6: OBSERVAÇÃO (Amarelo) */}
           <section className="bg-amber-50 rounded-xl p-4 border border-amber-200">
             <h4 className="text-xs font-bold text-amber-700 uppercase tracking-widest mb-2">Observações</h4>
             <p className="text-sm text-gray-800 whitespace-pre-wrap">{getVal(['Observação', 'Obs'])}</p>
           </section>
-
         </div>
-        
         <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
           <button onClick={onClose} className="px-6 py-2 bg-army-700 text-white rounded-lg text-sm font-bold uppercase hover:bg-army-800 shadow-md">Fechar</button>
         </div>
@@ -161,20 +246,17 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
     fetchAuxiliar().then(setAux);
   }, []);
 
-  // Máscara de Moeda: 5555 -> 55,55
   const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, ''); // Remove tudo que não é número
+    let value = e.target.value.replace(/\D/g, ''); 
     if (!value) {
       setFormData({ ...formData, valor: '' });
       return;
     }
-    // Converte para float (centavos) e formata
     const amount = parseInt(value) / 100;
     const formatted = amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     setFormData({ ...formData, valor: formatted });
   };
 
-  // Máscara de Números: Remove não numéricos
   const handleDiexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '');
     setFormData({ ...formData, nrDiex: value });
@@ -182,21 +264,13 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validação extra de segurança
     if (!formData.mapa || !formData.evento || !formData.valor || !formData.nrDiex || !formData.docAutoriza) {
       alert("Por favor, preencha todos os campos obrigatórios.");
       return;
     }
-
     setIsSubmitting(true);
-    
-    // Limpeza: Se o mapa selecionado já tiver texto extra (ex: "1/2026 - 4 Bda"), pega só a primeira parte
     const mapaBase = formData.mapa.split(' - ')[0].trim();
-    
-    // Concatena Mapa com prefixo fixo e OM usando BARRA
     const mapaConcatenado = `${mapaBase} - 4 Bda/${user.om}`;
-
     const payload = {
       ...formData,
       mapa: mapaConcatenado, 
@@ -205,7 +279,6 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
       om: user.om,
       userEmail: user.email
     };
-
     const success = await submitNewMap(payload);
     setIsSubmitting(false);
     if (success) onClose();
@@ -226,7 +299,6 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
           <div><h3 className="text-lg font-bold uppercase tracking-tight">Novo Mapa de Gratificação</h3><p className="text-xs text-army-200">{user.om}</p></div>
           <button onClick={onClose} className="p-1 hover:bg-army-700 rounded-full"><X className="w-6 h-6" /></button>
         </div>
-        
         <div className="overflow-y-auto p-6">
           <form id="new-map-form" onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -256,19 +328,10 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
                 </select>
               </div>
               <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Últ. Dia Evento</label><input required type="date" className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.ultDiaEvento} onChange={e => setFormData({...formData, ultDiaEvento: e.target.value})} /></div>
-              
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Valor Total (R$)</label>
-                <input 
-                  required 
-                  type="text" 
-                  placeholder="0,00" 
-                  className="w-full p-2 border border-gray-300 rounded-lg text-sm" 
-                  value={formData.valor} 
-                  onChange={handleValorChange} 
-                />
+                <input required type="text" placeholder="0,00" className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.valor} onChange={handleValorChange} />
               </div>
-              
               <div className="md:col-span-2">
                 <label className="flex items-center text-xs font-bold text-gray-500 uppercase mb-1">
                   Documento que autoriza o Evento
@@ -282,7 +345,6 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
                 </label>
                 <input required type="text" placeholder="Ex: DIM CML, OS Nr 123-Sec..." className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.docAutoriza} onChange={e => setFormData({...formData, docAutoriza: e.target.value})} />
               </div>
-
               <div>
                 <label className="flex items-center text-xs font-bold text-gray-500 uppercase mb-1">
                   Nr DIEx Remessa
@@ -293,14 +355,7 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
                     </div>
                   </div>
                 </label>
-                <input 
-                  required 
-                  type="text" 
-                  placeholder="Somente números" 
-                  className="w-full p-2 border border-gray-300 rounded-lg text-sm" 
-                  value={formData.nrDiex} 
-                  onChange={handleDiexChange} 
-                />
+                <input required type="text" placeholder="Somente números" className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.nrDiex} onChange={handleDiexChange} />
               </div>
               <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data DIEx</label><input required type="date" className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.dataDiex} onChange={e => setFormData({...formData, dataDiex: e.target.value})} /></div>
               <div className="md:col-span-2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Observações Adicionais</label><textarea rows={3} className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.observacao} onChange={e => setFormData({...formData, observacao: e.target.value})} /></div>
@@ -326,11 +381,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [error, setError] = useState<string | null>(null);
   const [selectedMap, setSelectedMap] = useState<MapData | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [filterMapa, setFilterMapa] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterEvento, setFilterEvento] = useState('');
-  const [filterOM, setFilterOM] = useState(user.role === UserRole.OM ? user.om! : '');
   const [isReportMenuOpen, setIsReportMenuOpen] = useState(false);
+
+  // Filtros
+  const [filterMapa, setFilterMapa] = useState(''); // Texto livre
+  const [filterOM, setFilterOM] = useState(user.role === UserRole.OM ? user.om! : '');
+  const [filterAno, setFilterAno] = useState(''); // Ano Select
+  
+  // Filtros Múltiplos
+  const [filterEventos, setFilterEventos] = useState<string[]>([]);
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
 
   const loadData = async () => {
     setLoading(true);
@@ -343,16 +403,37 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
   useEffect(() => { loadData(); }, []);
 
+  // Lista de anos disponíveis extraída dos dados
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    data.forEach(item => {
+      const y = extractYear(item.id);
+      if (y) years.add(y);
+    });
+    return Array.from(years).sort().reverse();
+  }, [data]);
+
   const filteredData = useMemo(() => {
     return data.filter(item => {
+      // Filtro OM
       if (user.role === UserRole.OM && item.om.trim() !== user.om) return false;
       if (filterOM && !item.om.toLowerCase().includes(filterOM.toLowerCase())) return false;
+      
+      // Filtro Texto Livre Mapa
       if (filterMapa && !item.id.toLowerCase().includes(filterMapa.toLowerCase())) return false;
-      if (filterStatus && !item.situacao.toLowerCase().includes(filterStatus.toLowerCase())) return false;
-      if (filterEvento && !item.evento.toLowerCase().includes(filterEvento.toLowerCase())) return false;
+      
+      // Filtro Ano
+      if (filterAno && extractYear(item.id) !== filterAno) return false;
+
+      // Filtro Múltiplo Eventos
+      if (filterEventos.length > 0 && !filterEventos.includes(item.evento)) return false;
+
+      // Filtro Múltiplo Status
+      if (filterStatus.length > 0 && !filterStatus.includes(item.situacao)) return false;
+
       return true;
     });
-  }, [data, user, filterMapa, filterStatus, filterOM, filterEvento]);
+  }, [data, user, filterMapa, filterStatus, filterOM, filterEventos, filterAno]);
 
   const stats = useMemo(() => {
     const total = filteredData.length;
@@ -376,27 +457,74 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     doc.setFontSize(16);
     doc.text('Relatório de Gratificações - 4ª Bda Inf L Mth', 14, 15);
     doc.setFontSize(10);
-    doc.text(`Gerado em: ${today} | Filtros Ativos: ${filterOM || 'Todas'} | ${filterEvento || 'Todos Eventos'}`, 14, 22);
+    const filtrosTexto = `OM: ${filterOM || 'Todas'} | Ano: ${filterAno || 'Todos'} | Status: ${filterStatus.length ? filterStatus.join(', ') : 'Todos'}`;
+    doc.text(`Gerado em: ${today}`, 14, 22);
+    doc.setFontSize(8);
+    doc.text(filtrosTexto, 14, 26);
     
     let tableBody: any[] = [];
     let sortedData = [...filteredData];
+    
+    let grandTotal = 0;
 
     if (type === 'MAPA') {
+      // Sem subseções, apenas lista corrida
       sortedData.sort((a, b) => a.id.localeCompare(b.id));
-      tableBody = sortedData.map(row => [row.om, row.id, row.evento, row.valor, row.situacao]);
+      
+      sortedData.forEach(row => {
+        const val = parseCurrency(row.valor);
+        grandTotal += val;
+        tableBody.push([
+          row.om, 
+          row.id, 
+          row.evento, 
+          row.valor, 
+          row.situacao
+        ]);
+      });
+
     } else {
       // Grouping Logic
       const groupKey = type === 'OM' ? 'om' : 'evento';
       sortedData.sort((a, b) => (a[groupKey] as string).localeCompare(b[groupKey] as string));
       
       let currentGroup = '';
-      sortedData.forEach(row => {
+      let subTotal = 0;
+      
+      // Itera para construir as linhas
+      for (let i = 0; i < sortedData.length; i++) {
+        const row = sortedData[i];
         const rowVal = row[groupKey] as string;
+        const valorNum = parseCurrency(row.valor);
+
+        // Mudança de grupo detectada
         if (rowVal !== currentGroup) {
+          // Se não for o primeiro, imprime o subtotal do grupo anterior
+          if (currentGroup !== '') {
+            tableBody.push([{ 
+              content: `Total ${type === 'OM' ? 'OM' : 'Evento'}: ${formatCurrency(subTotal)}`, 
+              colSpan: 5, 
+              styles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold', halign: 'right' } 
+            }]);
+          }
+
+          // Reinicia subtotal e atualiza grupo
           currentGroup = rowVal;
-          // Add Header Row
-          tableBody.push([{ content: currentGroup, colSpan: 5, styles: { fillColor: [52, 78, 52], textColor: 255, fontStyle: 'bold', halign: 'left' } }]);
+          subTotal = 0;
+
+          // Header da Seção
+          tableBody.push([{ 
+            content: currentGroup, 
+            colSpan: 5, 
+            styles: { fillColor: [52, 78, 52], textColor: 255, fontStyle: 'bold', halign: 'left' } 
+          }]);
         }
+
+        // Acumula
+        subTotal += valorNum;
+        grandTotal += valorNum;
+
+        // Adiciona linha de dados
         tableBody.push([
           type === 'OM' ? row.id : row.om, 
           type === 'OM' ? row.evento : row.id,
@@ -404,18 +532,34 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           row.nrDiex,
           row.situacao
         ]);
-      });
+
+        // Se for o último item, imprime o subtotal final
+        if (i === sortedData.length - 1) {
+           tableBody.push([{ 
+              content: `Total ${type === 'OM' ? 'OM' : 'Evento'}: ${formatCurrency(subTotal)}`, 
+              colSpan: 5, 
+              styles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold', halign: 'right' } 
+            }]);
+        }
+      }
     }
 
+    // Total Geral Final
+    tableBody.push([{ 
+      content: `TOTAL GERAL: ${formatCurrency(grandTotal)}`, 
+      colSpan: 5, 
+      styles: { fillColor: [40, 40, 40], textColor: 255, fontStyle: 'bold', halign: 'right', fontSize: 10 } 
+    }]);
+
     autoTable(doc, {
-      startY: 28,
+      startY: 30,
       head: [type === 'MAPA' 
         ? ['OM', 'Mapa', 'Evento', 'Valor', 'Situação'] 
         : [type === 'OM' ? 'Mapa' : 'OM', type === 'OM' ? 'Evento' : 'Mapa', 'Valor', 'DIEx', 'Situação']
       ],
       body: tableBody,
       theme: 'grid',
-      headStyles: { fillColor: [40, 40, 40] },
+      headStyles: { fillColor: [100, 100, 100] },
       styles: { fontSize: 8 },
     });
 
@@ -451,7 +595,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           <StatCard title="CANCELADOS" value={stats.cancelados} icon={AlertCircle} color="text-red-600 bg-red-600" />
         </div>
 
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 flex flex-col lg:flex-row justify-between items-center gap-4">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div className="flex space-x-2 w-full lg:w-auto">
             {user.role === UserRole.OM && (
               <button onClick={() => setIsFormOpen(true)} className="flex-1 lg:flex-none flex items-center justify-center px-6 py-2.5 bg-army-700 hover:bg-army-800 text-white rounded-lg font-bold text-sm shadow-md transition uppercase tracking-wider">
@@ -469,21 +613,33 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 </button>
                 {isReportMenuOpen && (
                    <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-100 z-50 overflow-hidden">
-                     <button onClick={() => generatePDF('OM')} className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center"><FileText className="w-4 h-4 mr-2 text-gray-400"/> Por OM</button>
-                     <button onClick={() => generatePDF('EVENTO')} className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center"><FileText className="w-4 h-4 mr-2 text-gray-400"/> Por Evento</button>
-                     <button onClick={() => generatePDF('MAPA')} className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center"><FileText className="w-4 h-4 mr-2 text-gray-400"/> Por Mapa (Ordem)</button>
+                     <button onClick={() => generatePDF('OM')} className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center"><FileText className="w-4 h-4 mr-2 text-gray-400"/> Por OM (com Subtotais)</button>
+                     <button onClick={() => generatePDF('EVENTO')} className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center"><FileText className="w-4 h-4 mr-2 text-gray-400"/> Por Evento (com Subtotais)</button>
+                     <button onClick={() => generatePDF('MAPA')} className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center"><FileText className="w-4 h-4 mr-2 text-gray-400"/> Por Mapa (Geral)</button>
                    </div>
                 )}
               </div>
             )}
           </div>
 
-          <div className="flex flex-wrap gap-2 w-full lg:w-auto">
-            <div className="relative flex-1 lg:w-40"><input type="text" placeholder="Mapa..." value={filterMapa} onChange={e => setFilterMapa(e.target.value)} className="w-full pl-8 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs" /><Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" /></div>
+          <div className="flex flex-wrap gap-2 w-full lg:flex-1 justify-end">
+            <div className="relative flex-1 lg:max-w-[140px]">
+               <input type="text" placeholder="Buscar Mapa..." value={filterMapa} onChange={e => setFilterMapa(e.target.value)} className="w-full pl-8 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs" />
+               <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            </div>
+
+             {/* Filtro Ano */}
+            <div className="relative flex-1 lg:max-w-[100px]">
+              <select value={filterAno} onChange={e => setFilterAno(e.target.value)} className="w-full pl-8 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs appearance-none cursor-pointer">
+                <option value="">Ano...</option>
+                {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
+              </select>
+              <Calendar className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            </div>
             
             {user.role === UserRole.ADMIN && (
-              <div className="relative flex-1 lg:w-40">
-                <select value={filterOM} onChange={e => setFilterOM(e.target.value)} className="w-full pl-8 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs appearance-none">
+              <div className="relative flex-1 lg:max-w-[120px]">
+                <select value={filterOM} onChange={e => setFilterOM(e.target.value)} className="w-full pl-8 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs appearance-none cursor-pointer">
                   <option value="">Todas OMs</option>
                   {Array.from(new Set(data.map(d => d.om))).sort().map(om => <option key={om} value={om}>{om}</option>)}
                 </select>
@@ -491,22 +647,23 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               </div>
             )}
             
-            {/* Filtro por Evento (Para OM e Admin) */}
-            <div className="relative flex-1 lg:w-40">
-              <select value={filterEvento} onChange={e => setFilterEvento(e.target.value)} className="w-full pl-8 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs appearance-none">
-                <option value="">Todos Eventos</option>
-                {auxData?.eventos.map(ev => <option key={ev} value={ev}>{ev}</option>)}
-              </select>
-              <Filter className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            </div>
+            {/* Filtro Múltiplo Evento */}
+            <MultiSelect 
+              label="Eventos..." 
+              options={auxData?.eventos || []} 
+              selected={filterEventos} 
+              onChange={setFilterEventos}
+              icon={Filter}
+            />
 
-            <div className="relative flex-1 lg:w-40">
-              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="w-full pl-8 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs appearance-none">
-                <option value="">Status...</option>
-                {Array.from(new Set(data.map(d => d.situacao))).sort().map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-              <Filter className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            </div>
+            {/* Filtro Múltiplo Status */}
+            <MultiSelect 
+              label="Status..." 
+              options={Array.from(new Set(data.map(d => d.situacao))).sort()} 
+              selected={filterStatus} 
+              onChange={setFilterStatus}
+              icon={Filter}
+            />
           </div>
         </div>
 
@@ -514,11 +671,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                {/* 
-                   ORDEM SOLICITADA:
-                   MAPA, EVENTO, VALOR, DIEx, Data DIEx, SITUAÇÃO, VER
-                   (Mantive OM visível apenas para Admin, pois é crucial para gestão, mas ocultei na ordem principal para usuário OM)
-                */}
                 <tr className="bg-gray-100 border-b border-gray-200 text-[10px] uppercase font-bold text-gray-500">
                   <th className="p-4">MAPA</th>
                   {user.role === UserRole.ADMIN && <th className="p-4">OM</th>}
@@ -534,26 +686,19 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 {filteredData.map((row, idx) => (
                   <tr key={idx} className={`border-b border-gray-100 transition duration-100 ${getRowStyle(row.situacao, idx)}`}>
                     <td className="p-4 font-mono font-bold uppercase">{row.id}</td>
-                    
                     {user.role === UserRole.ADMIN && <td className="p-4 font-bold">{row.om}</td>}
-                    
                     <td className="p-4">
                       <div className="font-bold uppercase">{row.evento}</div>
                       <div className="text-[10px] opacity-60 flex items-center mt-1"><Calendar className="w-3 h-3 mr-1" /> {row.ultDiaEvento}</div>
                     </td>
-                    
                     <td className="p-4 font-bold">{row.valor}</td>
-                    
                     <td className="p-4 hidden lg:table-cell opacity-70 font-mono text-[10px]">{row.nrDiex}</td>
-                    
                     <td className="p-4 hidden lg:table-cell opacity-70 font-mono text-[10px]">{row.dataDiex}</td>
-
                     <td className="p-4">
                       {row.situacao.toLowerCase().includes('devolvido') || row.situacao.toLowerCase().includes('cancelado') ? (
                         <span className="font-bold uppercase tracking-tighter text-[10px] px-2 py-0.5 border border-white/40 rounded bg-white/10">{row.situacao}</span>
                       ) : <StatusBadge status={row.situacao} />}
                     </td>
-
                     <td className="p-3 text-center">
                       <button onClick={() => setSelectedMap(row)} className="p-1.5 rounded-full hover:bg-army-100 text-army-700 transition" title="Ver Detalhes"><Eye className="w-4 h-4" /></button>
                     </td>
