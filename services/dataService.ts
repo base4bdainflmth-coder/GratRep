@@ -12,15 +12,47 @@ const fetchCSV = async (gid: string) => {
   return parseCSV(text);
 };
 
+// Função auxiliar para envio de dados com tratamento de resposta
+const sendRequest = async (payload: any): Promise<boolean> => {
+  try {
+    console.log("Enviando payload:", payload);
+    
+    // IMPORTANTE: Para que isso funcione sem 'no-cors', o Google Apps Script deve
+    // retornar ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+    const response = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // text/plain evita preflight OPTIONS no GAS
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro HTTP: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("Resposta do servidor:", result);
+
+    if (result.status === 'success') {
+      return true;
+    } else {
+      console.error("Erro retornado pelo script:", result.message);
+      return false;
+    }
+  } catch (e) {
+    console.error("Falha na requisição:", e);
+    // Fallback: Se o JSON falhar mas a requisição foi feita (ex: erro de parse), 
+    // assumimos erro para segurança, a menos que saibamos que o script não retorna JSON.
+    return false;
+  }
+};
+
 export const fetchMapData = async (): Promise<MapData[]> => {
   const rows = await fetchCSV(GID_CONTROLE_MAPAS);
   
   if (rows.length < 5) return [];
 
-  // Tenta localizar "Mapa" na coluna C (index 2), começando da linha 4 (index 3)
   let headerRowIndex = 3; 
   
-  // Confirmação de segurança para achar a linha de cabeçalho
   if (!rows[headerRowIndex] || !rows[headerRowIndex][DATA_START_COL_INDEX]?.toLowerCase().includes('mapa')) {
     for (let i = 0; i < Math.min(rows.length, 15); i++) {
       const cell = rows[i][DATA_START_COL_INDEX]; 
@@ -32,38 +64,27 @@ export const fetchMapData = async (): Promise<MapData[]> => {
   }
 
   const rawHeaders = rows[headerRowIndex];
-  
-  // Normaliza cabeçalhos para busca interna, mas mantém rawHeaders para envio ao script
   const cleanHeaders = rawHeaders.map(h => h ? h.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim() : '');
-  
   const getColIndex = (namePart: string) => cleanHeaders.findIndex(h => h.toLowerCase().includes(namePart.toLowerCase()));
 
-  // Mapeamento baseado nos nomes exatos ou parciais únicos fornecidos
-  const idxMapa = getColIndex('mapa'); // C
-  const idxEvento = getColIndex('evento'); // D
-  const idxUltDia = getColIndex('ult dia'); // E
-  const idxValor = getColIndex('valor'); // F
-  
-  // Doc que autoriza o Evento
+  const idxMapa = getColIndex('mapa');
+  const idxEvento = getColIndex('evento');
+  const idxUltDia = getColIndex('ult dia');
+  const idxValor = getColIndex('valor');
   const idxDoc = cleanHeaders.findIndex(h => h.toLowerCase().includes('doc') && h.toLowerCase().includes('autoriza') && h.toLowerCase().includes('evento'));
-  
   const idxNrDiex = getColIndex('nr diex remessa'); 
   const idxDataDiex = getColIndex('data diex remessa');
   const idxObs = getColIndex('observ');
   
-  // Ajuste explícito conforme informado: Situação na coluna AB (Index 27)
-  // O código tenta achar pelo nome 'Situação', se não achar, força 27
   let idxSituacao = cleanHeaders.findIndex(h => h.toLowerCase() === 'situação' || h.toLowerCase() === 'situacao');
   if (idxSituacao === -1 && rawHeaders.length > 27) idxSituacao = 27;
 
-  // Ajuste explícito conforme informado: OM na coluna AC (Index 28)
   let idxOM = cleanHeaders.findIndex(h => h === 'OM');
   if (idxOM === -1 && rawHeaders.length > 28) idxOM = 28;
 
   const mapColumnTitle = rawHeaders[idxMapa] || 'Mapa';
 
   return rows.slice(headerRowIndex + 1).map((row, index) => {
-    // Se não tiver ID do mapa, ignora a linha
     if (!row[idxMapa]) return null;
 
     return {
@@ -90,10 +111,15 @@ export const fetchUsers = async (): Promise<{users: UserCredential[], adminEmail
   const rows = await fetchCSV(GID_USUARIOS);
   if (rows.length < 2) return { users: [], adminEmail: '' };
   
+  // Linha 1 (índice 1) contém configurações do Admin nas colunas G e H
+  // Coluna G = índice 6, Coluna H = índice 7
   const adminEmail = rows[1]?.[6] || '';
   const adminPassword = rows[1]?.[7] || '';
   
-  const users = rows.slice(1).map(r => ({
+  // Começa a pegar usuários da linha 2 em diante (índice 2)
+  const usersStartIndex = rows.length > 2 ? 2 : 1; 
+  
+  const users = rows.slice(usersStartIndex).map(r => ({
     om: r[0] || '',
     senha: r[1] || '',
     email: r[2] || '',
@@ -113,63 +139,59 @@ export const fetchAuxiliar = async (): Promise<AuxiliarData> => {
   const destinos = rows.slice(2, 10).map(r => r[12]).filter(Boolean);
 
   return {
-    adminPassword: '', 
     oms,
     mapas,
     eventos,
     destinos,
     motivos,
-    adminEmail: '' 
+    adminEmail: '', 
+    adminPassword: ''
   };
 };
 
 export const submitNewMap = async (data: any): Promise<boolean> => {
-  try {
-    const payload = { ...data, action: 'create', sheetName: 'Controle de Mapas', sheet: 'Controle de Mapas' };
-    console.log("Enviando Novo Mapa:", payload);
-    
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors', 
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
-    return true; 
-  } catch (e) {
-    console.error(e);
-    return false;
-  }
+  const payload = { 
+    ...data, 
+    action: 'create', 
+    sheetName: 'Controle de Mapas', 
+    sheet: 'Controle de Mapas' 
+  };
+  return sendRequest(payload);
 };
 
 export const updateMap = async (sheetName: string, keyColumn: string, keyValue: string, updates: Record<string, string>, rowIndex?: number): Promise<boolean> => {
-  try {
-    const payload = {
-      action: 'update',
-      sheetName: sheetName,
-      sheet: sheetName, // Alias extra caso o script use 'sheet'
-      // Passa os dados achatados
-      ...updates,
-      // Metadata para busca
-      filterColumn: keyColumn,
-      filterValue: keyValue,
-      // Importante: Passamos rowIndex como string e number para garantir que o script pegue
-      rowIndex: rowIndex ? Number(rowIndex) : 0, 
-      row: rowIndex ? Number(rowIndex) : 0 
-    };
-    
-    console.log("Enviando Atualização:", payload);
+  const payload = {
+    action: 'update',
+    sheetName: sheetName,
+    sheet: sheetName,
+    ...updates,
+    filterColumn: keyColumn,
+    filterValue: keyValue,
+    rowIndex: rowIndex ?? null, 
+    row: rowIndex ?? null 
+  };
+  return sendRequest(payload);
+};
 
-    // O mode: 'no-cors' impede que vejamos a resposta, mas permite o envio para o Google Script
-    // Content-Type text/plain evita Preflight CORS que causa erros no Google Script
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
-    return true;
-  } catch (e) {
-    console.error(e);
-    return false;
-  }
+export const deleteMap = async (rowIndex: number, mapId: string): Promise<boolean> => {
+  const payload = {
+    action: 'delete',
+    sheetName: 'Controle de Mapas',
+    sheet: 'Controle de Mapas', 
+    rowIndex: rowIndex,
+    filterValue: mapId
+  };
+  return sendRequest(payload);
+};
+
+export const changePassword = async (userIdentifier: string, newPassword: string, isOm: boolean): Promise<boolean> => {
+  const payload = {
+    action: 'changePassword',
+    sheetName: 'Usuarios',
+    sheet: 'Usuarios',
+    user: userIdentifier,
+    newPassword: newPassword,
+    type: isOm ? 'OM' : 'ADMIN'
+  };
+  return sendRequest(payload);
 };

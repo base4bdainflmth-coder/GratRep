@@ -17,20 +17,19 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
     bgColor = 'bg-blue-100';
     textColor = 'text-blue-800';
   } else if (normalizedStatus.includes('devolvido')) {
-    // Special rule: Devolvido rows are black in table, but badge can be distinct or match
     bgColor = 'bg-gray-800';
     textColor = 'text-white';
   } else if (normalizedStatus.includes('cancelado')) {
-    // Special rule: Cancelado rows are red in table
-    bgColor = 'bg-red-100';
-    textColor = 'text-red-800';
+    // Softer red tone
+    bgColor = 'bg-red-50';
+    textColor = 'text-red-600'; 
   } else if (normalizedStatus.includes('pendente')) {
     bgColor = 'bg-yellow-100';
     textColor = 'text-yellow-800';
   }
 
   return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium ${bgColor} ${textColor}`}>
+    <span className={`px-2 py-1 rounded-full text-xs font-medium border border-transparent ${bgColor} ${textColor}`}>
       {status || 'N/A'}
     </span>
   );
