@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { fetchMapData, fetchAuxiliar, submitNewMap } from '../services/dataService';
-import { MapData, User, UserRole, AuxiliarData } from '../types';
+import { fetchMapData, fetchAuxiliar, submitNewMap, updateMap } from '../services/dataService';
+import { MapData, User, UserRole, AuxiliarData, FORMULA_COLUMNS_INDICES } from '../types';
 import { 
   Search, Filter, FileSpreadsheet, AlertCircle, CheckCircle2, 
   RefreshCcw, LogOut, Building2, Eye, Plus, X, Send, Loader2, Calendar, ClipboardList, Info,
-  Printer, FileText, ChevronDown, Check, Square, CheckSquare
+  Printer, FileText, ChevronDown, Square, CheckSquare, Pencil, Lock
 } from 'lucide-react';
 import StatCard from './StatCard';
 import StatusBadge from './StatusBadge';
@@ -17,40 +17,62 @@ interface DashboardProps {
 }
 
 // --- Funções Auxiliares ---
-
-// Formatar YYYY-MM-DD para DD/MM/YY
-const formatDateToBR = (dateStr: string) => {
-  if (!dateStr) return '';
-  const parts = dateStr.split('-');
-  if (parts.length !== 3) return dateStr;
-  return `${parts[2]}/${parts[1]}/${parts[0].slice(2)}`;
+const normalizeText = (text: string) => {
+  if (!text) return '';
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 };
 
-// Converter string de moeda (1.200,50) para number float
+const formatDateToBR = (dateStr: string) => {
+  if (!dateStr) return '';
+  if (dateStr.includes('/') && dateStr.split('/')[2].length === 4) return dateStr;
+  const parts = dateStr.split('-');
+  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  return dateStr;
+};
+
+// Converte DD/MM/AAAA ou DD/MM/AA para YYYY-MM-DD (para o input type="date")
+const formatDateToISO = (dateStr: string) => {
+  if (!dateStr) return '';
+  
+  const parts = dateStr.split('/');
+  if (parts.length === 3) {
+    let day = parts[0];
+    let month = parts[1];
+    let year = parts[2];
+    
+    // Trata ano com 2 dígitos
+    if (year.length === 2) {
+      year = '20' + year;
+    }
+    
+    // Garante zeros à esquerda
+    day = day.padStart(2, '0');
+    month = month.padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+  }
+  return dateStr;
+};
+
 const parseCurrency = (valueStr: string): number => {
   if (!valueStr) return 0;
-  // Remove R$, espaços e pontos de milhar, troca vírgula por ponto
   const cleanStr = valueStr.replace(/[R$\s.]/g, '').replace(',', '.');
   const num = parseFloat(cleanStr);
   return isNaN(num) ? 0 : num;
 };
 
-// Formatar number para moeda BRL
 const formatCurrency = (val: number): string => {
   return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
-// Extrair ano do ID do mapa (Ex: "JAN/2024 - ...")
 const extractYear = (mapId: string): string => {
   if (!mapId) return '';
-  // Tenta pegar padrão /YYYY
   const match = mapId.match(/\/(\d{4})/);
   if (match) return match[1];
   return '';
 };
 
 // --- Componente MultiSelect ---
-
 interface MultiSelectProps {
   label: string;
   options: string[];
@@ -129,12 +151,13 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onC
   );
 };
 
-// --- Componentes Existentes (Modais) ---
+// --- Modais ---
 
 const DetailsModal: React.FC<{ data: MapData; onClose: () => void }> = ({ data, onClose }) => {
   const getVal = (patterns: string[]) => {
-    if (!data.rawHeaders || !data.rawData) return '-';
-    const index = data.rawHeaders.findIndex(header => 
+    if (!data.cleanHeaders || !data.rawData) return '-';
+    // Busca exata ou parcial normalizada
+    const index = data.cleanHeaders.findIndex(header => 
       header && patterns.some(p => header.toLowerCase().includes(p.toLowerCase()))
     );
     return index >= 0 ? (data.rawData[index] || '-') : '-';
@@ -172,17 +195,17 @@ const DetailsModal: React.FC<{ data: MapData; onClose: () => void }> = ({ data, 
               <Field label="Evento" patterns={['Evento']} />
               <Field label="Últ. Dia Evento" patterns={['Ult Dia', 'Ultimo Dia']} />
               <Field label="Valor" patterns={['Valor']} />
-              <Field label="Doc. Autoriza Evento" patterns={['Doc', 'Autoriza', 'Evento']} full={true} />
-              <Field label="Nr DIEx Remessa" patterns={['Nr DIEx Remessa 4 Bda', 'Nr DIEx']} />
-              <Field label="Data DIEx Remessa" patterns={['Data DIEx Remessa 4 Bda', 'Data DIEx']} />
+              <Field label="Doc. Autoriza Evento" patterns={['Doc que autoriza o Evento']} full={true} />
+              <Field label="Nr DIEx Remessa" patterns={['Nr DIEx Remessa']} />
+              <Field label="Data DIEx Remessa" patterns={['Data DIEx Remessa']} />
               <Field label="Dias (Evento -> Remessa)" patterns={['Remsessa Bda', 'Dias Evento']} />
             </div>
           </section>
           <section className="bg-sky-50 rounded-xl p-4 border border-sky-100">
              <h4 className="text-xs font-bold text-sky-600 uppercase tracking-widest mb-4 border-b border-sky-200 pb-2">Trâmite Brigada &rarr; DE</h4>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Field label="Nr DIEx Saída" patterns={['Nr DIEx Saída', 'Nr DIEx Saida']} />
-                <Field label="Data DIEx Saída" patterns={['Data DIEx Saída', 'Data DIEx Saida']} />
+                <Field label="Nr DIEx Saída" patterns={['Nr DIEx Saída']} />
+                <Field label="Data DIEx Saída" patterns={['Data DIEx Saída']} />
                 <Field label="Destino" patterns={['Destino DIEx Saída']} />
                 <Field label="Dias (Recb -> Remessa DE)" patterns={['Remsessa DE', 'Dias Recb']} />
              </div>
@@ -192,9 +215,10 @@ const DetailsModal: React.FC<{ data: MapData; onClose: () => void }> = ({ data, 
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Field label="DIEx 1ª DE ao CML" patterns={['DIEx da 1ª DE ao CML']} />
                 <Field label="Data DIEx" patterns={['Data DIEx da 1ª DE ao CML']} />
-                <Field label="Dias (Remessa DE -> CML)" patterns={['Remsessa DE -> CML', 'Dias Remsessa DE']} />
+                <Field label="Dias (Remessa DE -> CML)" patterns={['Remsessa DE -> CML']} />
              </div>
           </section>
+          
           {(getVal(['Nr DIEx Devol', 'Nr DIEx Devolução']) !== '-' || data.situacao.toLowerCase().includes('devolvido')) && (
             <section className="bg-red-50 rounded-xl p-4 border border-red-200 ring-1 ring-red-100">
               <h4 className="text-xs font-bold text-red-700 uppercase tracking-widest mb-4 border-b border-red-200 pb-2 flex items-center">
@@ -208,13 +232,14 @@ const DetailsModal: React.FC<{ data: MapData; onClose: () => void }> = ({ data, 
               </div>
             </section>
           )}
+
           <section className="bg-emerald-50 rounded-xl p-4 border border-emerald-200 ring-1 ring-emerald-100">
              <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-widest mb-4 border-b border-emerald-200 pb-2 flex items-center">
                <CheckCircle2 className="w-4 h-4 mr-2" /> Autorização de Pagamento
              </h4>
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="lg:col-span-2">
-                  <Field label="Doc Autz Pagamento" patterns={['Doc Autorização de Pagamento', 'Doc Autz Pg']} />
+                  <Field label="Doc Autz Pagamento" patterns={['Doc Autorização de Pagamento']} />
                 </div>
                 <Field label="Data Doc" patterns={['Data Doc Autz Pg']} />
                 <Field label="Dias (OM -> Autz)" patterns={['Dias Recb OM -> Autz Pg']} />
@@ -235,6 +260,267 @@ const DetailsModal: React.FC<{ data: MapData; onClose: () => void }> = ({ data, 
   );
 };
 
+// --- Utilitários de Edição (Refatorados para nomes exatos) ---
+
+const getFieldKey = (cleanHeaders: string[], pattern: string) => {
+  return cleanHeaders.find(h => h.toLowerCase().trim() === pattern.toLowerCase().trim()) || null;
+};
+
+// Componente genérico para input que decide se é editável ou read-only baseado em padrões
+const SmartEditInput = ({ 
+  label, exactHeader, type = 'text', formData, cleanHeaders, onChange 
+}: { 
+  label: string, exactHeader: string, type?: string, formData: Record<string, string>, cleanHeaders: string[], onChange: (k: string, v: string) => void 
+}) => {
+  
+  const key = getFieldKey(cleanHeaders, exactHeader);
+  if (!key) return null;
+
+  // Lista de campos calculados que não devem ser editáveis
+  const calculatedFields = [
+    'Qnt Dias Evento -> Remsessa Bda',
+    'Qnt Dias Recb -> Remsessa DE',
+    'Qnt Dias Remsessa DE -> CML',
+    'Qnt Dias Recb OM -> Autz Pg',
+    'Qnt Dias Enc Bda -> DE -> Autz Pg',
+    'Qnt Dias Enc DE -> CML -> Autz Pg',
+    'Situação',
+    'Ano',
+    'OM' // OM também não deve mudar
+  ];
+
+  const isCalculated = calculatedFields.some(f => f.toLowerCase() === exactHeader.toLowerCase());
+
+  let val = formData[key] || '';
+  if (type === 'date') val = formatDateToISO(val);
+
+  return (
+    <div className="flex flex-col">
+      <label className="text-xs font-bold text-gray-500 uppercase mb-1 flex items-center justify-between">
+        {label}
+        {isCalculated && <Lock className="w-3 h-3 text-gray-400" />}
+      </label>
+      <input 
+        type={type} 
+        disabled={isCalculated}
+        className={`p-2 border rounded text-sm outline-none w-full ${isCalculated ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed' : 'bg-white border-gray-300 focus:ring-2 focus:ring-army-500'}`}
+        value={val} 
+        onChange={e => onChange(key, e.target.value)}
+      />
+    </div>
+  );
+};
+
+const EditSelect = ({ 
+  label, exactHeader, options, formData, cleanHeaders, onChange 
+}: { 
+  label: string, exactHeader: string, options: string[], formData: Record<string, string>, cleanHeaders: string[], onChange: (k: string, v: string) => void 
+}) => {
+  const key = getFieldKey(cleanHeaders, exactHeader);
+  if (!key) return null;
+  return (
+    <div className="flex flex-col">
+      <label className="text-xs font-bold text-gray-500 uppercase mb-1">{label}</label>
+      <select
+        className="p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-army-500 outline-none bg-white w-full"
+        value={formData[key] || ''}
+        onChange={e => onChange(key, e.target.value)}
+      >
+        <option value="">Selecione...</option>
+        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+      </select>
+    </div>
+  );
+};
+
+const EditTextArea = ({ 
+  label, exactHeader, formData, cleanHeaders, onChange 
+}: { 
+  label: string, exactHeader: string, formData: Record<string, string>, cleanHeaders: string[], onChange: (k: string, v: string) => void 
+}) => {
+  const key = getFieldKey(cleanHeaders, exactHeader);
+  if (!key) return null;
+  return (
+    <div className="flex flex-col col-span-full">
+      <label className="text-xs font-bold text-gray-500 uppercase mb-1">{label}</label>
+      <textarea 
+        rows={3}
+        className="p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-army-500 outline-none w-full"
+        value={formData[key] || ''} 
+        onChange={e => onChange(key, e.target.value)}
+      />
+    </div>
+  );
+};
+
+const EditMapModal: React.FC<{ data: MapData; auxData: AuxiliarData | null; onClose: () => void }> = ({ data, auxData, onClose }) => {
+  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [initialData, setInitialData] = useState<Record<string, string>>({});
+  const [headerMap, setHeaderMap] = useState<Record<string, string>>({}); 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  useEffect(() => {
+    const initial: Record<string, string> = {};
+    const hMap: Record<string, string> = {};
+
+    data.cleanHeaders.forEach((cleanH, idx) => {
+       initial[cleanH] = data.rawData[idx] || '';
+       hMap[cleanH] = data.rawHeaders[idx]; 
+    });
+    setFormData(initial);
+    setInitialData(initial);
+    setHeaderMap(hMap);
+  }, [data]);
+
+  const handleChange = (cleanHeader: string, value: string) => {
+    setFormData(prev => ({ ...prev, [cleanHeader]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    const updates: Record<string, string> = {};
+    
+    // Mapeamento de chaves para compatibilidade com o script do Google Sheets
+    // Se o script usa nomes de propriedades específicos (camelCase) como no 'create', tentamos mapear
+    // Senão, enviamos o cabeçalho limpo e trimado.
+    Object.keys(formData).forEach(cleanKey => {
+      let value = formData[cleanKey];
+      let initialVal = initialData[cleanKey];
+
+      // Se é data, converte de YYYY-MM-DD (input) para DD/MM/YYYY (Planilha)
+      if (value.match(/^\d{4}-\d{2}-\d{2}$/)) value = formatDateToBR(value);
+      if (initialVal.match(/^\d{4}-\d{2}-\d{2}$/)) initialVal = formatDateToBR(initialVal);
+
+      // Enviamos apenas o que mudou, mas garantimos que a chave seja limpa
+      if (value !== initialVal) {
+        const rawKey = headerMap[cleanKey];
+        if (rawKey) {
+            // Remove espaços extras e quebras de linha da chave (header)
+            const sanitizedKey = rawKey.replace(/[\r\n]+/g, '').trim();
+            updates[sanitizedKey] = value; 
+        }
+      }
+    });
+
+    if (Object.keys(updates).length === 0) {
+      alert("Nenhuma alteração detectada.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const success = await updateMap(
+      'Controle de Mapas', 
+      data.mapColumnTitle.trim(), // Remove espaços do nome da coluna chave
+      data.id,             
+      updates, 
+      data.rowIndex
+    );
+    
+    setIsSubmitting(false);
+    if (success) {
+      alert("Processo atualizado com sucesso!");
+      onClose();
+    } else {
+      alert("Erro ao atualizar dados.");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col">
+        <div className="p-6 bg-army-800 text-white flex justify-between items-center">
+           <div>
+             <h3 className="text-lg font-bold uppercase">Editar Processo</h3>
+             <p className="text-xs text-army-200">{data.id}</p>
+           </div>
+           <button onClick={onClose} className="p-1 hover:bg-army-700 rounded-full"><X className="w-6 h-6" /></button>
+        </div>
+        
+        <form id="edit-form" onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6">
+          
+          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 border-b pb-1">Dados Básicos</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <SmartEditInput label="Evento" exactHeader="Evento" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+              <SmartEditInput label="Últ. Dia" exactHeader="Ult Dia Evento" formData={formData} cleanHeaders={data.cleanHeaders} type="date" onChange={handleChange} />
+              <SmartEditInput label="Valor" exactHeader="Valor" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+              <SmartEditInput label="Nr DIEx" exactHeader="Nr DIEx Remessa 4 Bda" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+              <SmartEditInput label="Data DIEx" exactHeader="Data DIEx Remessa 4 Bda" type="date" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+              <SmartEditInput label="Doc Autoriza" exactHeader="Doc que autoriza o Evento" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+              <SmartEditInput label="Dias (Calc)" exactHeader="Qnt Dias Evento -> Remsessa Bda" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+            </div>
+          </div>
+
+          <div className="bg-sky-50 p-4 rounded-lg border border-sky-100">
+            <h4 className="text-xs font-bold text-sky-600 uppercase mb-3 border-b border-sky-200 pb-1">Trâmite Brigada &rarr; DE</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <SmartEditInput label="Nr DIEx Saída" exactHeader="Nr DIEx Saída" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+              <SmartEditInput label="Data Saída" exactHeader="Data DIEx Saída" type="date" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+              <EditSelect label="Destino" exactHeader="Destino DIEx Saída" options={auxData?.destinos || []} formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+              <SmartEditInput label="Dias (Calc)" exactHeader="Qnt Dias Recb -> Remsessa DE" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+            </div>
+          </div>
+
+          <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+             <h4 className="text-xs font-bold text-indigo-600 uppercase mb-3 border-b border-indigo-200 pb-1">Trâmite DE &rarr; CML</h4>
+             <div className="grid grid-cols-2 gap-4">
+               <SmartEditInput label="DIEx DE ao CML" exactHeader="DIEx da 1ª DE ao CML" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+               <SmartEditInput label="Data" exactHeader="Data DIEx da 1ª DE ao CML" type="date" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+               <SmartEditInput label="Dias (Calc)" exactHeader="Qnt Dias Remsessa DE -> CML" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+             </div>
+          </div>
+
+          <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+            <h4 className="text-xs font-bold text-red-700 uppercase mb-3 border-b border-red-200 pb-1 flex items-center">
+              <AlertCircle className="w-4 h-4 mr-2"/> Devolução
+            </h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <SmartEditInput label="Nr DIEx Devol" exactHeader="Nr DIEx Devol" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+              <SmartEditInput label="Data Devol" exactHeader="Data DIEx Devol" type="date" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+              <EditSelect label="Destino" exactHeader="Destino DIEx Devolução" options={auxData?.destinos || []} formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+              <div className="col-span-full">
+                 <EditSelect label="Motivo da Devolução" exactHeader="Motivo" options={auxData?.motivos || []} formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100">
+             <h4 className="text-xs font-bold text-emerald-700 uppercase mb-3 border-b border-emerald-200 pb-1">Pagamento</h4>
+             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+               <SmartEditInput label="Doc Autz Pagamento" exactHeader="Doc Autorização de Pagamento" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+               <SmartEditInput label="Data Doc" exactHeader="Data Doc Autz Pg" type="date" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+               <SmartEditInput label="Dias OM->Autz" exactHeader="Qnt Dias Recb OM -> Autz Pg" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+             </div>
+          </div>
+          
+          <div className="grid grid-cols-1 gap-4">
+             <SmartEditInput label="Situação (Auto)" exactHeader="Situação" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+             {/* Ano Removido */}
+          </div>
+
+          <EditTextArea label="Observações Gerais" exactHeader="Observação" formData={formData} cleanHeaders={data.cleanHeaders} onChange={handleChange} />
+          
+          <div className="text-[10px] text-gray-400 mt-2">
+            * Campos com ícone de cadeado são calculados automaticamente na planilha.
+          </div>
+
+        </form>
+
+        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end space-x-3">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-bold text-gray-500 hover:text-gray-700">CANCELAR</button>
+          <button type="submit" form="edit-form" disabled={isSubmitting} className="flex items-center px-6 py-2 bg-army-700 rounded-lg text-sm font-bold text-white hover:bg-army-800 disabled:opacity-50 shadow-md">
+            {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+            ATUALIZAR PROCESSO
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ... Resto do Dashboard permanece inalterado ...
 const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClose }) => {
   const [aux, setAux] = useState<AuxiliarData | null>(null);
   const [formData, setFormData] = useState({
@@ -380,15 +666,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedMap, setSelectedMap] = useState<MapData | null>(null);
+  const [editingMap, setEditingMap] = useState<MapData | null>(null); 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isReportMenuOpen, setIsReportMenuOpen] = useState(false);
 
   // Filtros
-  const [filterMapa, setFilterMapa] = useState(''); // Texto livre
+  const [filterMapa, setFilterMapa] = useState(''); 
   const [filterOM, setFilterOM] = useState(user.role === UserRole.OM ? user.om! : '');
-  const [filterAno, setFilterAno] = useState(''); // Ano Select
-  
-  // Filtros Múltiplos
+  const [filterAno, setFilterAno] = useState(''); 
   const [filterEventos, setFilterEventos] = useState<string[]>([]);
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
 
@@ -403,7 +688,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
   useEffect(() => { loadData(); }, []);
 
-  // Lista de anos disponíveis extraída dos dados
   const availableYears = useMemo(() => {
     const years = new Set<string>();
     data.forEach(item => {
@@ -415,22 +699,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
   const filteredData = useMemo(() => {
     return data.filter(item => {
-      // Filtro OM
       if (user.role === UserRole.OM && item.om.trim() !== user.om) return false;
       if (filterOM && !item.om.toLowerCase().includes(filterOM.toLowerCase())) return false;
-      
-      // Filtro Texto Livre Mapa
       if (filterMapa && !item.id.toLowerCase().includes(filterMapa.toLowerCase())) return false;
-      
-      // Filtro Ano
       if (filterAno && extractYear(item.id) !== filterAno) return false;
-
-      // Filtro Múltiplo Eventos
       if (filterEventos.length > 0 && !filterEventos.includes(item.evento)) return false;
-
-      // Filtro Múltiplo Status
       if (filterStatus.length > 0 && !filterStatus.includes(item.situacao)) return false;
-
       return true;
     });
   }, [data, user, filterMapa, filterStatus, filterOM, filterEventos, filterAno]);
@@ -468,63 +742,36 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     let grandTotal = 0;
 
     if (type === 'MAPA') {
-      // Sem subseções, apenas lista corrida
       sortedData.sort((a, b) => a.id.localeCompare(b.id));
-      
       sortedData.forEach(row => {
         const val = parseCurrency(row.valor);
         grandTotal += val;
-        tableBody.push([
-          row.om, 
-          row.id, 
-          row.evento, 
-          row.valor, 
-          row.situacao
-        ]);
+        tableBody.push([row.om, row.id, row.evento, row.valor, row.situacao]);
       });
-
     } else {
-      // Grouping Logic
       const groupKey = type === 'OM' ? 'om' : 'evento';
       sortedData.sort((a, b) => (a[groupKey] as string).localeCompare(b[groupKey] as string));
       
       let currentGroup = '';
       let subTotal = 0;
       
-      // Itera para construir as linhas
       for (let i = 0; i < sortedData.length; i++) {
         const row = sortedData[i];
         const rowVal = row[groupKey] as string;
         const valorNum = parseCurrency(row.valor);
 
-        // Mudança de grupo detectada
         if (rowVal !== currentGroup) {
-          // Se não for o primeiro, imprime o subtotal do grupo anterior
           if (currentGroup !== '') {
-            tableBody.push([{ 
-              content: `Total ${type === 'OM' ? 'OM' : 'Evento'}: ${formatCurrency(subTotal)}`, 
-              colSpan: 5, 
-              styles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold', halign: 'right' } 
-            }]);
+            tableBody.push([{ content: `Total ${type === 'OM' ? 'OM' : 'Evento'}: ${formatCurrency(subTotal)}`, colSpan: 5, styles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold', halign: 'right' } }]);
           }
-
-          // Reinicia subtotal e atualiza grupo
           currentGroup = rowVal;
           subTotal = 0;
-
-          // Header da Seção
-          tableBody.push([{ 
-            content: currentGroup, 
-            colSpan: 5, 
-            styles: { fillColor: [52, 78, 52], textColor: 255, fontStyle: 'bold', halign: 'left' } 
-          }]);
+          tableBody.push([{ content: currentGroup, colSpan: 5, styles: { fillColor: [52, 78, 52], textColor: 255, fontStyle: 'bold', halign: 'left' } }]);
         }
 
-        // Acumula
         subTotal += valorNum;
         grandTotal += valorNum;
 
-        // Adiciona linha de dados
         tableBody.push([
           type === 'OM' ? row.id : row.om, 
           type === 'OM' ? row.evento : row.id,
@@ -533,23 +780,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           row.situacao
         ]);
 
-        // Se for o último item, imprime o subtotal final
         if (i === sortedData.length - 1) {
-           tableBody.push([{ 
-              content: `Total ${type === 'OM' ? 'OM' : 'Evento'}: ${formatCurrency(subTotal)}`, 
-              colSpan: 5, 
-              styles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold', halign: 'right' } 
-            }]);
+           tableBody.push([{ content: `Total ${type === 'OM' ? 'OM' : 'Evento'}: ${formatCurrency(subTotal)}`, colSpan: 5, styles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold', halign: 'right' } }]);
         }
       }
     }
 
-    // Total Geral Final
-    tableBody.push([{ 
-      content: `TOTAL GERAL: ${formatCurrency(grandTotal)}`, 
-      colSpan: 5, 
-      styles: { fillColor: [40, 40, 40], textColor: 255, fontStyle: 'bold', halign: 'right', fontSize: 10 } 
-    }]);
+    tableBody.push([{ content: `TOTAL GERAL: ${formatCurrency(grandTotal)}`, colSpan: 5, styles: { fillColor: [40, 40, 40], textColor: 255, fontStyle: 'bold', halign: 'right', fontSize: 10 } }]);
 
     autoTable(doc, {
       startY: 30,
@@ -572,6 +809,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   return (
     <div className="min-h-screen bg-gray-100 font-sans pb-10">
       {selectedMap && <DetailsModal data={selectedMap} onClose={() => setSelectedMap(null)} />}
+      {editingMap && <EditMapModal data={editingMap} auxData={auxData} onClose={() => { setEditingMap(null); loadData(); }} />}
       {isFormOpen && <NewMapForm user={user} onClose={() => { setIsFormOpen(false); loadData(); }} />}
 
       <nav className="bg-army-800 text-white shadow-xl sticky top-0 z-40 border-b border-army-900">
@@ -627,8 +865,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                <input type="text" placeholder="Buscar Mapa..." value={filterMapa} onChange={e => setFilterMapa(e.target.value)} className="w-full pl-8 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs" />
                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             </div>
-
-             {/* Filtro Ano */}
             <div className="relative flex-1 lg:max-w-[100px]">
               <select value={filterAno} onChange={e => setFilterAno(e.target.value)} className="w-full pl-8 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs appearance-none cursor-pointer">
                 <option value="">Ano...</option>
@@ -636,7 +872,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               </select>
               <Calendar className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             </div>
-            
             {user.role === UserRole.ADMIN && (
               <div className="relative flex-1 lg:max-w-[120px]">
                 <select value={filterOM} onChange={e => setFilterOM(e.target.value)} className="w-full pl-8 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs appearance-none cursor-pointer">
@@ -646,8 +881,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 <Building2 className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
               </div>
             )}
-            
-            {/* Filtro Múltiplo Evento */}
             <MultiSelect 
               label="Eventos..." 
               options={auxData?.eventos || []} 
@@ -655,8 +888,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               onChange={setFilterEventos}
               icon={Filter}
             />
-
-            {/* Filtro Múltiplo Status */}
             <MultiSelect 
               label="Status..." 
               options={Array.from(new Set(data.map(d => d.situacao))).sort()} 
@@ -679,7 +910,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                   <th className="p-4 hidden lg:table-cell">DIEx</th>
                   <th className="p-4 hidden lg:table-cell">DATA DIEx</th>
                   <th className="p-4">SITUAÇÃO</th>
-                  <th className="p-4 w-12 text-center">VER</th>
+                  <th className="p-4 w-20 text-center">AÇÕES</th>
                 </tr>
               </thead>
               <tbody className="text-xs">
@@ -699,8 +930,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                         <span className="font-bold uppercase tracking-tighter text-[10px] px-2 py-0.5 border border-white/40 rounded bg-white/10">{row.situacao}</span>
                       ) : <StatusBadge status={row.situacao} />}
                     </td>
-                    <td className="p-3 text-center">
+                    <td className="p-3 text-center flex justify-center space-x-2">
                       <button onClick={() => setSelectedMap(row)} className="p-1.5 rounded-full hover:bg-army-100 text-army-700 transition" title="Ver Detalhes"><Eye className="w-4 h-4" /></button>
+                      
+                      {user.role === UserRole.ADMIN && (
+                        <button 
+                          onClick={() => setEditingMap(row)} 
+                          className="p-1.5 rounded-full hover:bg-blue-100 text-blue-700 transition" 
+                          title="Editar Processo"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
