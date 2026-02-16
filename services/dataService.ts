@@ -109,22 +109,22 @@ export const fetchMapData = async (): Promise<MapData[]> => {
 
 export const fetchUsers = async (): Promise<{users: UserCredential[], adminEmail: string, adminPassword?: string}> => {
   const rows = await fetchCSV(GID_USUARIOS);
+  
+  // Precisa de pelo menos 2 linhas (Header + 1 dado) para ter dados válidos
   if (rows.length < 2) return { users: [], adminEmail: '' };
   
-  // Linha 1 (índice 1) contém configurações do Admin nas colunas G e H
-  // Coluna G = índice 6, Coluna H = índice 7
+  // Admin Email está em G2 (Linha índice 1, Coluna índice 6)
   const adminEmail = rows[1]?.[6] || '';
   const adminPassword = rows[1]?.[7] || '';
   
-  // Começa a pegar usuários da linha 2 em diante (índice 2)
-  const usersStartIndex = rows.length > 2 ? 2 : 1; 
-  
-  const users = rows.slice(usersStartIndex).map(r => ({
-    om: r[0] || '',
-    senha: r[1] || '',
-    email: r[2] || '',
-    telefone: r[3] || ''
-  })).filter(u => u.om && u.senha);
+  // Usuários começam na Linha 2 (Índice 1). 
+  // O slice(1) remove o cabeçalho (Índice 0) e inclui a linha 2 em diante.
+  const users = rows.slice(1).map(r => ({
+    om: r[0] || '',    // A
+    senha: r[1] || '', // B
+    email: r[2] || '', // C
+    telefone: r[3] || '' // D
+  })).filter(u => u.om && u.senha); // Filtra linhas vazias
   
   return { users, adminEmail, adminPassword };
 };

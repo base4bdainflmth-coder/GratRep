@@ -4,7 +4,7 @@ import { MapData, User, UserRole, AuxiliarData, UserCredential } from '../types'
 import { 
   Search, Filter, FileSpreadsheet, AlertCircle, CheckCircle2, 
   RefreshCcw, LogOut, Building2, Eye, Plus, X, Send, Loader2, Calendar, ClipboardList, 
-  Printer, FileText, ChevronDown, Square, CheckSquare, Pencil, Lock, Trash2, Key, ArrowUpDown, AlertTriangle
+  Printer, FileText, ChevronDown, Square, CheckSquare, Pencil, Lock, Trash2, Key, ArrowUpDown, AlertTriangle, Mail
 } from 'lucide-react';
 import StatCard from './StatCard';
 import StatusBadge from './StatusBadge';
@@ -152,7 +152,6 @@ const ChangePasswordModal: React.FC<{ user: User; onClose: () => void }> = ({ us
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Stop propagation para evitar fechar o modal se o form estiver dentro de algo clicável
     e.stopPropagation();
 
     if (newPassword !== confirmPassword) {
@@ -166,9 +165,7 @@ const ChangePasswordModal: React.FC<{ user: User; onClose: () => void }> = ({ us
 
     setIsSubmitting(true);
     try {
-      // Para Admin, se não houver email, usa 'admin' como identificador
       const identifier = user.role === UserRole.ADMIN ? (user.email || 'admin') : (user.om || '');
-      
       const success = await changePassword(identifier, newPassword, user.role === UserRole.OM);
       
       if (success) {
@@ -603,6 +600,9 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
       omEmail: omEmail,      // Target OM Email
       adminEmail: adminEmail // Target Admin Email
     };
+    
+    console.log("Enviando mapa com e-mails:", { omEmail, adminEmail });
+
     const success = await submitNewMap(payload);
     setIsSubmitting(false);
     if (success) onClose();
@@ -630,6 +630,11 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
     const mapaBase = formData.mapa.split(' - ')[0].trim();
     return `${mapaBase} - 4 Bda/${formData.selectedOM || '...'}`;
   };
+
+  // Get current emails for warning/debug
+  const currentOMUser = usersInfo.users.find(u => u.om === formData.selectedOM);
+  const omEmail = currentOMUser?.email;
+  const adminEmail = usersInfo.adminEmail;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
@@ -680,6 +685,7 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
                 </select>
               </div>
             )}
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Mapa (Mês/Ano)</label>
@@ -702,6 +708,27 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
               <div><label className="flex items-center text-xs font-bold text-gray-500 uppercase mb-1">Nr DIEx Remessa</label><input required type="text" placeholder="Somente números" className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.nrDiex} onChange={e => setFormData({...formData, nrDiex: e.target.value.replace(/\D/g, '')})} /></div>
               <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data DIEx</label><input required type="date" className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.dataDiex} onChange={e => setFormData({...formData, dataDiex: e.target.value})} /></div>
               <div className="md:col-span-2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Observações Adicionais</label><textarea rows={3} className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.observacao} onChange={e => setFormData({...formData, observacao: e.target.value})} /></div>
+            </div>
+
+            {/* Debug Info para E-mails */}
+            <div className="text-[10px] text-gray-500 mt-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
+              <p className="font-bold uppercase mb-2 flex items-center text-gray-700">
+                <Mail className="w-3 h-3 mr-1.5"/> Destinatários da Notificação
+              </p>
+              <div className="flex flex-col space-y-1">
+                <div className="flex justify-between items-center">
+                  <span>Administrador:</span>
+                  <span className={adminEmail ? "text-green-600 font-mono font-bold" : "text-red-400 font-mono font-bold italic"}>
+                    {adminEmail || "Não configurado na aba Usuários"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>OM ({formData.selectedOM || '...'}):</span>
+                  <span className={omEmail ? "text-green-600 font-mono font-bold" : "text-red-400 font-mono font-bold italic"}>
+                    {omEmail || "Não configurado na aba Usuários"}
+                  </span>
+                </div>
+              </div>
             </div>
           </form>
         </div>
@@ -824,7 +851,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const getRowStyle = (status: string, index: number) => {
     const s = status.toLowerCase();
     if (s.includes('devolvido')) return 'bg-neutral-900 text-white hover:bg-neutral-800';
-    if (s.includes('cancelado')) return 'bg-red-50 text-red-900 hover:bg-red-100'; 
+    if (s.includes('cancelado')) return 'bg-[#ba3838] text-white hover:bg-[#5c1c1c]'; 
     return index % 2 === 0 ? 'bg-white hover:bg-gray-100' : 'bg-gray-200 hover:bg-gray-300';
   };
 

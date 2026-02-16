@@ -20,9 +20,9 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
     bgColor = 'bg-gray-800';
     textColor = 'text-white';
   } else if (normalizedStatus.includes('cancelado')) {
-    // Softer red tone
-    bgColor = 'bg-red-50';
-    textColor = 'text-red-600'; 
+    // Darker red (Red 950 hex) for canceled status
+    bgColor = 'bg-[#450a0a]';
+    textColor = 'text-white'; 
   } else if (normalizedStatus.includes('pendente')) {
     bgColor = 'bg-yellow-100';
     textColor = 'text-yellow-800';

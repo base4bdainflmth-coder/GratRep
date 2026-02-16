@@ -110,7 +110,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <ShieldCheck className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-2xl font-bold text-white uppercase tracking-tight">4ª Bda Inf L Mth</h2>
-          <p className="text-army-200 mt-2 text-xs font-bold uppercase tracking-widest leading-tight">Controle de Gratificação de Representação</p>
+          <p className="text-army-200 mt-2 text-xs font-bold uppercase tracking-widest leading-tight">Sistema de Controle de Gratificação de Representação</p>
         </div>
 
         <div className="p-8">
