@@ -3,7 +3,7 @@ import { fetchMapData, fetchAuxiliar, submitNewMap, updateMap, deleteMap, change
 import { MapData, User, UserRole, AuxiliarData, UserCredential } from '../types';
 import { 
   Search, Filter, FileSpreadsheet, AlertCircle, CheckCircle2, 
-  RefreshCcw, LogOut, Building2, Eye, Plus, X, Send, Loader2, Calendar, ClipboardList, 
+  RefreshCcw, LogOut, Building2, Eye, Plus, X, Send, Loader2, Calendar, 
   Printer, FileText, ChevronDown, Square, CheckSquare, Pencil, Lock, Trash2, Key, ArrowUpDown, AlertTriangle, Mail
 } from 'lucide-react';
 import StatCard from './StatCard';
@@ -935,7 +935,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       <nav className="bg-army-800 text-white shadow-xl sticky top-0 z-40 border-b border-army-900">
         <div className="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            <div className="bg-white p-1 rounded-lg"><ClipboardList className="h-6 w-6 text-army-800" /></div>
+            <div className="bg-white p-1 rounded-lg">
+                <img 
+                  src="https://upload.wikimedia.org/wikipedia/commons/e/e6/4%C2%AA_Brigada_de_Infantaria_Leve_%28Montanha%29_-_Distintivo.png" 
+                  alt="Logo" 
+                  className="h-6 w-auto drop-shadow-sm" 
+                />
+            </div>
             <div><h1 className="text-lg font-bold uppercase tracking-tighter">4ª Bda Inf L Mth</h1><p className="text-[10px] text-army-300 font-bold uppercase">Gratificação de Representação</p></div>
           </div>
           <div className="flex items-center space-x-4">
