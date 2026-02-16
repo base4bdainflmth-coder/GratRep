@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, UserCredential, AuxiliarData } from '../types';
 import { fetchUsers, fetchAuxiliar } from '../services/dataService';
-import { ChevronRight, Loader2, KeyRound, AlertTriangle } from 'lucide-react';
+import { ChevronRight, Loader2, KeyRound, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -106,11 +106,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
         <div className="bg-army-800 p-8 text-center flex flex-col items-center">
-          <img 
-            src="https://upload.wikimedia.org/wikipedia/commons/e/e6/4%C2%AA_Brigada_de_Infantaria_Leve_%28Montanha%29_-_Distintivo.png" 
-            alt="Brasão 4ª Bda Inf L Mth" 
-            className="w-24 h-auto mb-4 drop-shadow-lg"
-          />
+          <div className="bg-white/10 p-4 rounded-full mb-4 ring-1 ring-white/20">
+            <ShieldCheck className="w-12 h-12 text-white" />
+          </div>
           <h2 className="text-2xl font-bold text-white uppercase tracking-tight">4ª Bda Inf L Mth</h2>
           <p className="text-army-200 mt-2 text-xs font-bold uppercase tracking-widest leading-tight">Sistema de Controle de Gratificação de Representação</p>
         </div>

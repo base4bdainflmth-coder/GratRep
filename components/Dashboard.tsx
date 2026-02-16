@@ -3,7 +3,7 @@ import { fetchMapData, fetchAuxiliar, submitNewMap, updateMap, deleteMap, change
 import { MapData, User, UserRole, AuxiliarData, UserCredential } from '../types';
 import { 
   Search, Filter, FileSpreadsheet, AlertCircle, CheckCircle2, 
-  RefreshCcw, LogOut, Building2, Eye, Plus, X, Send, Loader2, Calendar, 
+  RefreshCcw, LogOut, Building2, Eye, Plus, X, Send, Loader2, Calendar, ClipboardList, 
   Printer, FileText, ChevronDown, Square, CheckSquare, Pencil, Lock, Trash2, Key, ArrowUpDown, AlertTriangle, Mail
 } from 'lucide-react';
 import StatCard from './StatCard';
@@ -936,11 +936,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         <div className="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
           <div className="flex items-center space-x-3">
             <div className="bg-white p-1 rounded-lg">
-                <img 
-                  src="https://upload.wikimedia.org/wikipedia/commons/e/e6/4%C2%AA_Brigada_de_Infantaria_Leve_%28Montanha%29_-_Distintivo.png" 
-                  alt="Logo" 
-                  className="h-6 w-auto drop-shadow-sm" 
-                />
+               <ClipboardList className="h-6 w-6 text-army-800" />
             </div>
             <div><h1 className="text-lg font-bold uppercase tracking-tighter">4ª Bda Inf L Mth</h1><p className="text-[10px] text-army-300 font-bold uppercase">Gratificação de Representação</p></div>
           </div>
@@ -956,7 +952,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           <StatCard title="TOTAL MAPAS" value={stats.total} icon={FileSpreadsheet} color="text-blue-600 bg-blue-600" />
           <StatCard title="APROVADOS" value={stats.aprovados} icon={CheckCircle2} color="text-green-600 bg-green-600" />
           <StatCard title="DEVOLVIDOS" value={stats.devolvidos} icon={RefreshCcw} color="text-gray-900 bg-gray-900" />
-          <StatCard title="CANCELADOS" value={stats.cancelados} icon={AlertCircle} color="text-red-600 bg-red-600" />
+          <StatCard title="CANCELADOS" value={stats.cancelados} icon={AlertCircle} color="text-[#ba3838] bg-[#ba3838]" />
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div className="flex space-x-2 w-full lg:w-auto">
