@@ -4,10 +4,11 @@ import { MapData, User, UserRole, AuxiliarData, UserCredential } from '../types'
 import { 
   Search, Filter, FileSpreadsheet, AlertCircle, CheckCircle2, 
   RefreshCcw, LogOut, Building2, Eye, Plus, X, Send, Loader2, Calendar, ClipboardList, 
-  Printer, FileText, ChevronDown, Square, CheckSquare, Pencil, Lock, Trash2, Key, ArrowUpDown, AlertTriangle, Mail
+  Printer, FileText, ChevronDown, Square, CheckSquare, Pencil, Lock, Trash2, Key, ArrowUpDown, AlertTriangle, Mail, BarChart3
 } from 'lucide-react';
 import StatCard from './StatCard';
 import StatusBadge from './StatusBadge';
+import ReportsModal from './ReportsModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -755,6 +756,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isReportMenuOpen, setIsReportMenuOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isAdvancedReportOpen, setIsAdvancedReportOpen] = useState(false); // Novo State
   const [sortConfig, setSortConfig] = useState<{ key: keyof MapData, direction: 'asc' | 'desc' } | null>(null);
   const [filterMapa, setFilterMapa] = useState(''); 
   const [filterOM, setFilterOM] = useState(user.role === UserRole.OM ? user.om! : '');
@@ -921,6 +923,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       {editingMap && <EditMapModal data={editingMap} auxData={auxData} onClose={() => { setEditingMap(null); loadData(); }} />}
       {isFormOpen && <NewMapForm user={user} onClose={() => { setIsFormOpen(false); loadData(); }} />}
       {isChangePasswordOpen && <ChangePasswordModal user={user} onClose={() => setIsChangePasswordOpen(false)} />}
+      {isAdvancedReportOpen && <ReportsModal data={filteredData} onClose={() => setIsAdvancedReportOpen(false)} />}
       
       {/* Modal de Exclusão separado */}
       {isDeleteModalOpen && mapToDelete && (
@@ -958,15 +961,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           <div className="flex space-x-2 w-full lg:w-auto">
             <button onClick={() => setIsFormOpen(true)} className="flex-1 lg:flex-none flex items-center justify-center px-6 py-2.5 bg-army-700 hover:bg-army-800 text-white rounded-lg font-bold text-sm shadow-md transition uppercase tracking-wider"><Plus className="w-5 h-5 mr-2" /> Novo Mapa</button>
             {user.role === UserRole.ADMIN && (
-              <div className="relative">
-                <button onClick={() => setIsReportMenuOpen(!isReportMenuOpen)} className="flex-1 lg:flex-none flex items-center justify-center px-6 py-2.5 bg-gray-700 hover:bg-gray-800 text-white rounded-lg font-bold text-sm shadow-md transition uppercase tracking-wider"><Printer className="w-5 h-5 mr-2" /> Relatórios</button>
-                {isReportMenuOpen && (
-                   <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-100 z-50 overflow-hidden">
-                     <button onClick={() => generatePDF('OM')} className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center"><FileText className="w-4 h-4 mr-2 text-gray-400"/> Por OM (com Subtotais)</button>
-                     <button onClick={() => generatePDF('EVENTO')} className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center"><FileText className="w-4 h-4 mr-2 text-gray-400"/> Por Evento (com Subtotais)</button>
-                     <button onClick={() => generatePDF('MAPA')} className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center"><FileText className="w-4 h-4 mr-2 text-gray-400"/> Por Mapa (Geral)</button>
-                   </div>
-                )}
+              <div className="flex space-x-2">
+                 <button onClick={() => setIsAdvancedReportOpen(true)} className="flex-1 lg:flex-none flex items-center justify-center px-6 py-2.5 bg-army-600 hover:bg-army-800 text-white rounded-lg font-bold text-sm shadow-md transition uppercase tracking-wider"><BarChart3 className="w-5 h-5 mr-2" /> Gerencial</button>
+                 <div className="relative">
+                  <button onClick={() => setIsReportMenuOpen(!isReportMenuOpen)} className="flex-1 lg:flex-none flex items-center justify-center px-6 py-2.5 bg-gray-700 hover:bg-gray-800 text-white rounded-lg font-bold text-sm shadow-md transition uppercase tracking-wider"><Printer className="w-5 h-5 mr-2" /> PDF</button>
+                  {isReportMenuOpen && (
+                     <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-100 z-50 overflow-hidden">
+                       <button onClick={() => generatePDF('OM')} className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center"><FileText className="w-4 h-4 mr-2 text-gray-400"/> Por OM (com Subtotais)</button>
+                       <button onClick={() => generatePDF('EVENTO')} className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center"><FileText className="w-4 h-4 mr-2 text-gray-400"/> Por Evento (com Subtotais)</button>
+                       <button onClick={() => generatePDF('MAPA')} className="w-full text-left px-4 py-3 hover:bg-gray-50 text-sm flex items-center"><FileText className="w-4 h-4 mr-2 text-gray-400"/> Por Mapa (Geral)</button>
+                     </div>
+                  )}
+                 </div>
               </div>
             )}
           </div>
