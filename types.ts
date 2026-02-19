@@ -29,6 +29,7 @@ export interface AuxiliarData {
   eventos: string[];
   destinos: string[];
   motivos: string[];
+  exercicioCorrente: string;
   adminEmail: string;
   adminPassword?: string;
 }

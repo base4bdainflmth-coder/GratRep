@@ -110,33 +110,43 @@ export const fetchMapData = async (): Promise<MapData[]> => {
 export const fetchUsers = async (): Promise<{users: UserCredential[], adminEmail: string, adminPassword?: string}> => {
   const rows = await fetchCSV(GID_USUARIOS);
   
-  // Precisa de pelo menos 2 linhas (Header + 1 dado) para ter dados válidos
   if (rows.length < 2) return { users: [], adminEmail: '' };
   
   // Admin Email está em G2 (Linha índice 1, Coluna índice 6)
+  // Admin Senha está em H2 (Linha índice 1, Coluna índice 7)
   const adminEmail = rows[1]?.[6] || '';
   const adminPassword = rows[1]?.[7] || '';
   
   // Usuários começam na Linha 2 (Índice 1). 
-  // O slice(1) remove o cabeçalho (Índice 0) e inclui a linha 2 em diante.
   const users = rows.slice(1).map(r => ({
-    om: r[0] || '',    // A
-    senha: r[1] || '', // B
-    email: r[2] || '', // C
-    telefone: r[3] || '' // D
-  })).filter(u => u.om && u.senha); // Filtra linhas vazias
+    om: r[0] || '',       // A
+    senha: r[2] || '',    // C
+    email: r[3] || '',    // D
+    telefone: r[4] || ''  // E
+  })).filter(u => u.om && u.senha); 
   
   return { users, adminEmail, adminPassword };
 };
 
 export const fetchAuxiliar = async (): Promise<AuxiliarData> => {
   const rows = await fetchCSV(GID_AUXILIAR);
-  if (rows.length < 2) return { oms: [], mapas: [], eventos: [], destinos: [], motivos: [], adminEmail: '' };
-  const oms = rows.slice(2, 15).map(r => r[14]).filter(Boolean);
+  if (rows.length < 2) return { oms: [], mapas: [], eventos: [], destinos: [], motivos: [], exercicioCorrente: '', adminEmail: '' };
+  
+  // Mapeamento conforme solicitado:
+  // Eventos: B2:B (Index 1)
+  // Motivos: K2:K (Index 10)
+  // Destinos: M2:M (Index 12)
+  // Exercício Corrente: F2 (Index 5)
+  
+  const eventos = rows.slice(1).map(r => r[1]).filter(Boolean);
+  const motivos = rows.slice(1).map(r => r[10]).filter(Boolean);
+  const destinos = rows.slice(1).map(r => r[12]).filter(Boolean);
+  const exercicioCorrente = rows[1]?.[5] || '';
+  
+  // OMs agora vêm da aba Usuários, mas para compatibilidade mantemos aqui se necessário
+  // O usuário pediu configuração de OM na aba Usuários.
+  const oms = rows.slice(1).map(r => r[14]).filter(Boolean); // Mantendo O (14) por enquanto se existir
   const mapas = rows.slice(1).map(r => r[8]).filter(Boolean);
-  const eventos = rows.slice(2).map(r => r[1]).filter(Boolean);
-  const motivos = rows.slice(2, 15).map(r => r[10]).filter(Boolean);
-  const destinos = rows.slice(2, 10).map(r => r[12]).filter(Boolean);
 
   return {
     oms,
@@ -144,9 +154,30 @@ export const fetchAuxiliar = async (): Promise<AuxiliarData> => {
     eventos,
     destinos,
     motivos,
+    exercicioCorrente,
     adminEmail: '', 
     adminPassword: ''
   };
+};
+
+export const updateConfig = async (data: { eventos: string[], motivos: string[], destinos: string[], exercicio: string }): Promise<boolean> => {
+  const payload = {
+    action: 'updateConfig',
+    sheetName: 'Auxiliar',
+    sheet: 'Auxiliar',
+    ...data
+  };
+  return sendRequest(payload);
+};
+
+export const updateUsersConfig = async (data: { users: UserCredential[], adminEmail: string, adminPassword: string }): Promise<boolean> => {
+  const payload = {
+    action: 'updateUsers',
+    sheetName: 'Usuarios',
+    sheet: 'Usuarios',
+    ...data
+  };
+  return sendRequest(payload);
 };
 
 export const submitNewMap = async (data: any): Promise<boolean> => {

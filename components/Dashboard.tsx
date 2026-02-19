@@ -1,10 +1,14 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { fetchMapData, fetchAuxiliar, submitNewMap, updateMap, deleteMap, changePassword, fetchUsers } from '../services/dataService';
+import { 
+  fetchMapData, fetchAuxiliar, submitNewMap, updateMap, deleteMap, changePassword, fetchUsers,
+  updateConfig, updateUsersConfig
+} from '../services/dataService';
 import { MapData, User, UserRole, AuxiliarData, UserCredential } from '../types';
 import { 
   Search, Filter, FileSpreadsheet, AlertCircle, CheckCircle2, 
   RefreshCcw, LogOut, Building2, Eye, Plus, X, Send, Loader2, Calendar, ClipboardList, 
-  Printer, FileText, ChevronDown, Square, CheckSquare, Pencil, Lock, Trash2, Key, ArrowUpDown, AlertTriangle, Mail, BarChart3
+  Printer, FileText, ChevronDown, Square, CheckSquare, Pencil, Lock, Trash2, Key, ArrowUpDown, AlertTriangle, Mail, BarChart3,
+  Settings
 } from 'lucide-react';
 import StatCard from './StatCard';
 import StatusBadge from './StatusBadge';
@@ -80,6 +84,175 @@ const SuccessModal: React.FC<{ message: string; onClose: () => void }> = ({ mess
         >
           OK, Entendido
         </button>
+      </div>
+    </div>
+  );
+};
+
+// --- Componente AdminConfigModal ---
+const AdminConfigModal: React.FC<{ onClose: () => void; onSuccess: (msg: string) => void }> = ({ onClose, onSuccess }) => {
+  const [activeTab, setActiveTab] = useState<'auxiliar' | 'usuarios'>('auxiliar');
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // State Auxiliar
+  const [eventos, setEventos] = useState<string[]>([]);
+  const [motivos, setMotivos] = useState<string[]>([]);
+  const [destinos, setDestinos] = useState<string[]>([]);
+  const [exercicio, setExercicio] = useState('');
+  
+  // State Usuários
+  const [users, setUsers] = useState<UserCredential[]>([]);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+
+  useEffect(() => {
+    const loadConfig = async () => {
+      setLoading(true);
+      try {
+        const [aux, usersData] = await Promise.all([fetchAuxiliar(), fetchUsers()]);
+        setEventos(aux.eventos);
+        setMotivos(aux.motivos);
+        setDestinos(aux.destinos);
+        setExercicio(aux.exercicioCorrente);
+        
+        setUsers(usersData.users);
+        setAdminEmail(usersData.adminEmail);
+        setAdminPassword(usersData.adminPassword || '');
+      } catch (err) {
+        console.error(err);
+        alert("Erro ao carregar configurações.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadConfig();
+  }, []);
+
+  const handleSaveAuxiliar = async () => {
+    setIsSubmitting(true);
+    const success = await updateConfig({ eventos, motivos, destinos, exercicio });
+    setIsSubmitting(false);
+    if (success) onSuccess("Configurações Auxiliares atualizadas!");
+  };
+
+  const handleSaveUsers = async () => {
+    setIsSubmitting(true);
+    const success = await updateUsersConfig({ users, adminEmail, adminPassword });
+    setIsSubmitting(false);
+    if (success) onSuccess("Configurações de Usuários atualizadas!");
+  };
+
+  const ListEditor = ({ title, items, setItems }: { title: string, items: string[], setItems: (i: string[]) => void }) => {
+    const [newItem, setNewItem] = useState('');
+    const addItem = () => { if (newItem.trim()) { setItems([...items, newItem.trim()]); setNewItem(''); } };
+    const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
+
+    return (
+      <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+        <h4 className="text-xs font-bold text-gray-500 uppercase mb-3">{title}</h4>
+        <div className="flex space-x-2 mb-3">
+          <input type="text" className="flex-1 p-2 border rounded text-sm" value={newItem} onChange={e => setNewItem(e.target.value)} placeholder="Novo item..." />
+          <button onClick={addItem} className="p-2 bg-army-700 text-white rounded hover:bg-army-800"><Plus className="w-4 h-4" /></button>
+        </div>
+        <div className="max-h-32 overflow-y-auto space-y-1">
+          {items.map((item, idx) => (
+            <div key={idx} className="flex justify-between items-center bg-white p-2 rounded border text-xs">
+              <span>{item}</span>
+              <button onClick={() => removeItem(idx)} className="text-red-500 hover:text-red-700"><X className="w-3.5 h-3.5" /></button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  if (loading) return <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50"><Loader2 className="animate-spin text-white w-10 h-10" /></div>;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+        <div className="p-6 bg-army-800 text-white flex justify-between items-center rounded-t-2xl">
+          <div className="flex items-center space-x-3">
+            <Settings className="w-6 h-6" />
+            <h3 className="text-lg font-bold uppercase tracking-tight">Configurações do Sistema</h3>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-army-700 rounded-full"><X className="w-6 h-6" /></button>
+        </div>
+        
+        <div className="flex border-b border-gray-200">
+          <button onClick={() => setActiveTab('auxiliar')} className={`flex-1 py-3 text-sm font-bold uppercase transition ${activeTab === 'auxiliar' ? 'text-army-700 border-b-2 border-army-700 bg-army-50' : 'text-gray-400 hover:text-gray-600'}`}>Aba Auxiliar</button>
+          <button onClick={() => setActiveTab('usuarios')} className={`flex-1 py-3 text-sm font-bold uppercase transition ${activeTab === 'usuarios' ? 'text-army-700 border-b-2 border-army-700 bg-army-50' : 'text-gray-400 hover:text-gray-600'}`}>Aba Usuários</button>
+        </div>
+
+        <div className="overflow-y-auto p-6 flex-1">
+          {activeTab === 'auxiliar' ? (
+            <div className="space-y-6">
+              <div className="bg-sky-50 p-4 rounded-xl border border-sky-100">
+                <label className="block text-xs font-bold text-sky-700 uppercase mb-2">Exercício Corrente (F2)</label>
+                <input type="text" className="w-full p-2.5 border border-sky-200 rounded-lg text-sm bg-white" value={exercicio} onChange={e => setExercicio(e.target.value)} placeholder="Ex: 2024" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <ListEditor title="Eventos (B2:B)" items={eventos} setItems={setEventos} />
+                <ListEditor title="Motivos Devolução (K2:K)" items={motivos} setItems={setMotivos} />
+                <ListEditor title="Destinos (M2:M)" items={destinos} setItems={setDestinos} />
+              </div>
+              <button onClick={handleSaveAuxiliar} disabled={isSubmitting} className="w-full py-3 bg-army-700 text-white font-bold rounded-xl hover:bg-army-800 disabled:opacity-50 flex justify-center items-center shadow-lg">
+                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
+                Salvar Aba Auxiliar
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Email Administrador (G2)</label>
+                  <input type="email" className="w-full p-2 border rounded text-sm" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} />
+                </div>
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Senha Administrador (H2)</label>
+                  <input type="text" className="w-full p-2 border rounded text-sm" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} />
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase">Cadastro de OMs</h4>
+                  <button onClick={() => setUsers([...users, { om: '', senha: '', email: '', telefone: '' }])} className="p-1.5 bg-army-700 text-white rounded hover:bg-army-800 flex items-center text-[10px] font-bold uppercase"><Plus className="w-3 h-3 mr-1" /> Adicionar OM</button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-gray-400 uppercase text-[10px] border-b">
+                        <th className="p-2 text-left">OM (A)</th>
+                        <th className="p-2 text-left">Senha (C)</th>
+                        <th className="p-2 text-left">Email (D)</th>
+                        <th className="p-2 text-left">Tel (E)</th>
+                        <th className="p-2 w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {users.map((u, idx) => (
+                        <tr key={idx}>
+                          <td className="p-1"><input type="text" className="w-full p-1 border rounded" value={u.om} onChange={e => { const n = [...users]; n[idx].om = e.target.value; setUsers(n); }} /></td>
+                          <td className="p-1"><input type="text" className="w-full p-1 border rounded" value={u.senha} onChange={e => { const n = [...users]; n[idx].senha = e.target.value; setUsers(n); }} /></td>
+                          <td className="p-1"><input type="text" className="w-full p-1 border rounded" value={u.email} onChange={e => { const n = [...users]; n[idx].email = e.target.value; setUsers(n); }} /></td>
+                          <td className="p-1"><input type="text" className="w-full p-1 border rounded" value={u.telefone} onChange={e => { const n = [...users]; n[idx].telefone = e.target.value; setUsers(n); }} /></td>
+                          <td className="p-1 text-center"><button onClick={() => setUsers(users.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              
+              <button onClick={handleSaveUsers} disabled={isSubmitting} className="w-full py-3 bg-army-700 text-white font-bold rounded-xl hover:bg-army-800 disabled:opacity-50 flex justify-center items-center shadow-lg">
+                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
+                Salvar Aba Usuários
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -912,6 +1085,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [isReportMenuOpen, setIsReportMenuOpen] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isAdvancedReportOpen, setIsAdvancedReportOpen] = useState(false); 
+  const [isAdminConfigOpen, setIsAdminConfigOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: keyof MapData, direction: 'asc' | 'desc' } | null>(null);
   
   const [filterMapa, setFilterMapa] = useState(''); 
@@ -1096,6 +1270,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
       {sendingMap && <SendMapModal data={sendingMap} user={user} onClose={() => { setSendingMap(null); loadData(); }} onSuccess={setSuccessMessage} />}
       {isFormOpen && <NewMapForm user={user} onClose={() => { setIsFormOpen(false); loadData(); }} onSuccess={setSuccessMessage} />}
       {isChangePasswordOpen && <ChangePasswordModal user={user} onClose={() => setIsChangePasswordOpen(false)} onSuccess={setSuccessMessage} />}
+      {isAdminConfigOpen && <AdminConfigModal onClose={() => { setIsAdminConfigOpen(false); loadData(); }} onSuccess={setSuccessMessage} />}
       {isAdvancedReportOpen && <ReportsModal data={filteredData} onClose={() => setIsAdvancedReportOpen(false)} />}
       
       {/* Modal de Exclusão separado */}
@@ -1118,6 +1293,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-right hidden sm:block"><p className="text-xs font-bold uppercase">{user.name}</p><p className="text-[10px] text-army-400 font-bold uppercase">{user.om || 'ADMINISTRADOR'}</p></div>
+            {user.role === UserRole.ADMIN && (
+              <button onClick={() => setIsAdminConfigOpen(true)} className="p-2 bg-army-700 hover:bg-army-600 rounded-full transition shadow-inner" title="Configurações"><Settings className="w-4 h-4" /></button>
+            )}
             <button onClick={() => setIsChangePasswordOpen(true)} className="p-2 bg-army-700 hover:bg-army-600 rounded-full transition shadow-inner" title="Trocar Senha"><Key className="w-4 h-4" /></button>
             <button onClick={onLogout} className="p-2 bg-army-700 hover:bg-red-700 rounded-full transition shadow-inner" title="Sair"><LogOut className="w-4 h-4" /></button>
           </div>
@@ -1211,7 +1389,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                       <td className="p-4 hidden lg:table-cell opacity-70 font-mono text-[10px]">{row.dataDiex}</td>
                       <td className="p-4">
                         {displayStatus.toLowerCase().includes('devolvido') || displayStatus.toLowerCase().includes('cancelado') ? (
-                          <span className="font-bold uppercase tracking-tighter text-[10px] px-2 py-0.5 border border-white/40 rounded bg-white/10">{displayStatus}</span>
+                          <span className="font-bold tracking-tighter text-[10px] px-2 py-0.5 border border-white/40 rounded bg-white/10">{displayStatus}</span>
                         ) : <StatusBadge status={displayStatus} />}
                       </td>
                       <td className="p-3 text-center flex justify-center space-x-1" onClick={e => e.stopPropagation()}>

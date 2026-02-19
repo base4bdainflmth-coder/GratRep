@@ -31,7 +31,7 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
   }
 
   return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium border border-transparent ${bgColor} ${textColor} uppercase`}>
+    <span className={`px-2 py-1 rounded-full text-xs font-medium border border-transparent ${bgColor} ${textColor}`}>
       {status || 'N/A'}
     </span>
   );
