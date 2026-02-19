@@ -193,9 +193,9 @@ const AdminConfigModal: React.FC<{ onClose: () => void; onSuccess: (msg: string)
                 <input type="text" className="w-full p-2.5 border border-sky-200 rounded-lg text-sm bg-white" value={exercicio} onChange={e => setExercicio(e.target.value)} placeholder="Ex: 2024" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <ListEditor title="Eventos (B2:B)" items={eventos} setItems={setEventos} />
-                <ListEditor title="Motivos Devolução (K2:K)" items={motivos} setItems={setMotivos} />
-                <ListEditor title="Destinos (M2:M)" items={destinos} setItems={setDestinos} />
+                <ListEditor title="Eventos (B3:B)" items={eventos} setItems={setEventos} />
+                <ListEditor title="Motivos Devolução (K3:K)" items={motivos} setItems={setMotivos} />
+                <ListEditor title="Destinos (M3:M)" items={destinos} setItems={setDestinos} />
               </div>
               <button onClick={handleSaveAuxiliar} disabled={isSubmitting} className="w-full py-3 bg-army-700 text-white font-bold rounded-xl hover:bg-army-800 disabled:opacity-50 flex justify-center items-center shadow-lg">
                 {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
@@ -225,9 +225,9 @@ const AdminConfigModal: React.FC<{ onClose: () => void; onSuccess: (msg: string)
                     <thead>
                       <tr className="text-gray-400 uppercase text-[10px] border-b">
                         <th className="p-2 text-left">OM (A)</th>
-                        <th className="p-2 text-left">Senha (C)</th>
-                        <th className="p-2 text-left">Email (D)</th>
-                        <th className="p-2 text-left">Tel (E)</th>
+                        <th className="p-2 text-left">Senha (B)</th>
+                        <th className="p-2 text-left">Email (C)</th>
+                        <th className="p-2 text-left">Tel (D)</th>
                         <th className="p-2 w-8"></th>
                       </tr>
                     </thead>

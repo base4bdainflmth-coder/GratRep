@@ -120,9 +120,9 @@ export const fetchUsers = async (): Promise<{users: UserCredential[], adminEmail
   // Usuários começam na Linha 2 (Índice 1). 
   const users = rows.slice(1).map(r => ({
     om: r[0] || '',       // A
-    senha: r[2] || '',    // C
-    email: r[3] || '',    // D
-    telefone: r[4] || ''  // E
+    senha: r[1] || '',    // B
+    email: r[2] || '',    // C
+    telefone: r[3] || ''  // D
   })).filter(u => u.om && u.senha); 
   
   return { users, adminEmail, adminPassword };
@@ -133,19 +133,18 @@ export const fetchAuxiliar = async (): Promise<AuxiliarData> => {
   if (rows.length < 2) return { oms: [], mapas: [], eventos: [], destinos: [], motivos: [], exercicioCorrente: '', adminEmail: '' };
   
   // Mapeamento conforme solicitado:
-  // Eventos: B2:B (Index 1)
-  // Motivos: K2:K (Index 10)
-  // Destinos: M2:M (Index 12)
+  // Eventos: B3:B (Index 1, slice(2))
+  // Motivos: K3:K (Index 10, slice(2))
+  // Destinos: M3:M (Index 12, slice(2))
   // Exercício Corrente: F2 (Index 5)
   
-  const eventos = rows.slice(1).map(r => r[1]).filter(Boolean);
-  const motivos = rows.slice(1).map(r => r[10]).filter(Boolean);
-  const destinos = rows.slice(1).map(r => r[12]).filter(Boolean);
+  const eventos = rows.slice(2).map(r => r[1]).filter(Boolean);
+  const motivos = rows.slice(2).map(r => r[10]).filter(Boolean);
+  const destinos = rows.slice(2).map(r => r[12]).filter(Boolean);
   const exercicioCorrente = rows[1]?.[5] || '';
   
   // OMs agora vêm da aba Usuários, mas para compatibilidade mantemos aqui se necessário
-  // O usuário pediu configuração de OM na aba Usuários.
-  const oms = rows.slice(1).map(r => r[14]).filter(Boolean); // Mantendo O (14) por enquanto se existir
+  const oms = rows.slice(1).map(r => r[14]).filter(Boolean); 
   const mapas = rows.slice(1).map(r => r[8]).filter(Boolean);
 
   return {
