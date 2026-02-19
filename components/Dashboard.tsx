@@ -64,6 +64,27 @@ const extractYear = (mapId: string): string => {
   return '';
 };
 
+// --- Componente SuccessModal ---
+const SuccessModal: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full animate-in fade-in zoom-in duration-300 flex flex-col items-center text-center" onClick={e => e.stopPropagation()}>
+        <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
+          <CheckCircle2 className="w-8 h-8" />
+        </div>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">Sucesso!</h3>
+        <p className="text-gray-600 mb-8">{message}</p>
+        <button 
+          onClick={onClose} 
+          className="w-full py-3 bg-army-700 text-white font-bold rounded-xl hover:bg-army-800 transition shadow-lg transform hover:scale-[1.02]"
+        >
+          OK, Entendido
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // --- Componente MultiSelect ---
 interface MultiSelectProps {
   label: string;
@@ -95,6 +116,14 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onC
     }
   };
 
+  const toggleAll = () => {
+    if (selected.length === options.length) {
+      onChange([]);
+    } else {
+      onChange([...options]);
+    }
+  };
+
   return (
     <div className="relative flex-1 lg:w-40" ref={containerRef}>
       <button 
@@ -103,7 +132,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onC
         className="w-full pl-8 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs flex items-center justify-between hover:bg-gray-100 transition truncate"
       >
         <span className="truncate">
-          {selected.length === 0 ? label : `${selected.length} selecionado(s)`}
+          {selected.length === 0 ? label : (selected.length === options.length ? 'Todos selecionados' : `${selected.length} selecionado(s)`)}
         </span>
         <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
         {Icon && <Icon className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />}
@@ -111,6 +140,17 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onC
 
       {isOpen && (
         <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto p-1">
+          {options.length > 0 && (
+            <div 
+              onClick={toggleAll}
+              className="flex items-center px-3 py-2 cursor-pointer rounded-md text-xs transition hover:bg-gray-50 text-gray-700 border-b border-gray-100 mb-1"
+            >
+              <div className={`mr-2 ${selected.length === options.length ? 'text-army-600' : 'text-gray-300'}`}>
+                {selected.length === options.length ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+              </div>
+              <span className="truncate font-bold">Selecionar Todos</span>
+            </div>
+          )}
           {options.length === 0 ? (
             <div className="p-2 text-xs text-gray-400 text-center">Nenhuma opção</div>
           ) : (
@@ -146,7 +186,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selected, onC
 
 // --- Modais ---
 
-const ChangePasswordModal: React.FC<{ user: User; onClose: () => void }> = ({ user, onClose }) => {
+const ChangePasswordModal: React.FC<{ user: User; onClose: () => void; onSuccess: (msg: string) => void }> = ({ user, onClose, onSuccess }) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -170,7 +210,7 @@ const ChangePasswordModal: React.FC<{ user: User; onClose: () => void }> = ({ us
       const success = await changePassword(identifier, newPassword, user.role === UserRole.OM);
       
       if (success) {
-        alert("Senha alterada com sucesso! Atualize seu login.");
+        onSuccess("Senha alterada com sucesso! Atualize seu login.");
         onClose();
       } else {
         alert("Erro ao alterar senha. Verifique sua conexão e tente novamente.");
@@ -413,7 +453,7 @@ const EditTextArea = ({ label, exactHeader, formData, cleanHeaders, onChange }: 
   );
 };
 
-const EditMapModal: React.FC<{ data: MapData; auxData: AuxiliarData | null; onClose: () => void }> = ({ data, auxData, onClose }) => {
+const EditMapModal: React.FC<{ data: MapData; auxData: AuxiliarData | null; onClose: () => void; onSuccess: (msg: string) => void }> = ({ data, auxData, onClose, onSuccess }) => {
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [initialData, setInitialData] = useState<Record<string, string>>({});
   const [headerMap, setHeaderMap] = useState<Record<string, string>>({}); 
@@ -462,7 +502,7 @@ const EditMapModal: React.FC<{ data: MapData; auxData: AuxiliarData | null; onCl
     const success = await updateMap('Controle de Mapas', data.mapColumnTitle.trim(), data.id, updates, data.rowIndex);
     setIsSubmitting(false);
     if (success) {
-      alert("Processo atualizado com sucesso!");
+      onSuccess("Processo atualizado com sucesso!");
       onClose();
     } else {
       alert("Erro ao atualizar dados.");
@@ -537,7 +577,7 @@ const EditMapModal: React.FC<{ data: MapData; auxData: AuxiliarData | null; onCl
   );
 };
 
-const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClose }) => {
+const NewMapForm: React.FC<{ user: User; onClose: () => void; onSuccess: (msg: string) => void }> = ({ user, onClose, onSuccess }) => {
   const [aux, setAux] = useState<AuxiliarData | null>(null);
   const [usersInfo, setUsersInfo] = useState<{users: UserCredential[], adminEmail: string}>({users: [], adminEmail: ''});
   const [formData, setFormData] = useState({
@@ -568,16 +608,9 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
   const isLate = (dateStr: string) => {
     if (!dateStr) return false;
     const today = new Date();
-    // Força a data para meio-dia para evitar problemas de fuso horário na conversão
     const eventDate = new Date(dateStr + 'T12:00:00');
-    
-    // Diferença em milissegundos
     const diffTime = today.getTime() - eventDate.getTime();
-    
-    // Converte para dias
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-    // Se o evento foi há mais de 60 dias atrás
     return diffDays > 60;
   };
 
@@ -586,7 +619,6 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
     const mapaBase = formData.mapa.split(' - ')[0].trim();
     const mapaConcatenado = `${mapaBase} - 4 Bda/${formData.selectedOM}`;
     
-    // Find email associated with the selected OM
     const omUser = usersInfo.users.find(u => u.om === formData.selectedOM);
     const omEmail = omUser ? omUser.email : '';
     const adminEmail = usersInfo.adminEmail;
@@ -595,30 +627,34 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
       ...formData,
       mapa: mapaConcatenado, 
       ultDiaEvento: formatDateToBR(formData.ultDiaEvento),
-      dataDiex: formatDateToBR(formData.dataDiex),
+      dataDiex: '', // Envia vazio na criação
+      nrDiex: '',   // Envia vazio na criação
+      observacao: '', // Envia vazio na criação
       om: formData.selectedOM,
-      userEmail: user.email, // Logged user email (might be admin or om)
-      omEmail: omEmail,      // Target OM Email
-      adminEmail: adminEmail // Target Admin Email
+      userEmail: user.email, 
+      omEmail: omEmail,      
+      adminEmail: adminEmail 
     };
     
-    console.log("Enviando mapa com e-mails:", { omEmail, adminEmail });
-
     const success = await submitNewMap(payload);
     setIsSubmitting(false);
-    if (success) onClose();
+    if (success) {
+      onSuccess("Mapa criado com sucesso!");
+      onClose();
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.mapa || !formData.evento || !formData.valor || !formData.nrDiex || !formData.docAutoriza || !formData.selectedOM) {
-      alert("Por favor, preencha todos os campos obrigatórios.");
+    // Validação reduzida para a etapa de criação
+    if (!formData.mapa || !formData.evento || !formData.valor || !formData.docAutoriza || !formData.selectedOM) {
+      alert("Por favor, preencha todos os campos obrigatórios (até Documento que Autoriza).");
       return;
     }
 
     if (isLate(formData.ultDiaEvento)) {
       setShowConfirmation(true);
-      return; // Interrompe a submissão e espera a confirmação do modal
+      return; 
     }
     
     await executeSubmission();
@@ -631,11 +667,6 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
     const mapaBase = formData.mapa.split(' - ')[0].trim();
     return `${mapaBase} - 4 Bda/${formData.selectedOM || '...'}`;
   };
-
-  // Get current emails for warning/debug
-  const currentOMUser = usersInfo.users.find(u => u.om === formData.selectedOM);
-  const omEmail = currentOMUser?.email;
-  const adminEmail = usersInfo.adminEmail;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
@@ -706,27 +737,28 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
               <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Últ. Dia Evento</label><input required type="date" className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.ultDiaEvento} onChange={e => setFormData({...formData, ultDiaEvento: e.target.value})} /></div>
               <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Valor Total (R$)</label><input required type="text" placeholder="0,00" className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.valor} onChange={handleValorChange} /></div>
               <div className="md:col-span-2"><label className="flex items-center text-xs font-bold text-gray-500 uppercase mb-1">Documento que autoriza o Evento</label><input required type="text" placeholder="Ex: DIM CML, OS Nr 123-Sec..." className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.docAutoriza} onChange={e => setFormData({...formData, docAutoriza: e.target.value})} /></div>
-              <div><label className="flex items-center text-xs font-bold text-gray-500 uppercase mb-1">Nr DIEx Remessa</label><input required type="text" placeholder="Somente números" className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.nrDiex} onChange={e => setFormData({...formData, nrDiex: e.target.value.replace(/\D/g, '')})} /></div>
-              <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Data DIEx</label><input required type="date" className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.dataDiex} onChange={e => setFormData({...formData, dataDiex: e.target.value})} /></div>
-              <div className="md:col-span-2"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Observações Adicionais</label><textarea rows={3} className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.observacao} onChange={e => setFormData({...formData, observacao: e.target.value})} /></div>
+              
+              {/* Campos desativados na criação */}
+              <div><label className="flex items-center text-xs font-bold text-gray-400 uppercase mb-1">Nr DIEx Remessa</label><input disabled type="text" placeholder="Somente números" className="w-full p-2 border border-gray-200 bg-gray-50 rounded-lg text-sm cursor-not-allowed" value={formData.nrDiex} /></div>
+              <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Data DIEx</label><input disabled type="date" className="w-full p-2 border border-gray-200 bg-gray-50 rounded-lg text-sm cursor-not-allowed" value={formData.dataDiex} /></div>
+              <div className="md:col-span-2"><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Observações Adicionais</label><textarea disabled rows={3} className="w-full p-2 border border-gray-200 bg-gray-50 rounded-lg text-sm cursor-not-allowed" value={formData.observacao} /></div>
             </div>
 
-            {/* Debug Info para E-mails */}
             <div className="text-[10px] text-gray-500 mt-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
               <p className="font-bold uppercase mb-2 flex items-center text-gray-700">
-                <Mail className="w-3 h-3 mr-1.5"/> Destinatários da Notificação
+                <Mail className="w-3 h-3 mr-1.5"/> Destinatários da Notificação (Visualização)
               </p>
               <div className="flex flex-col space-y-1">
                 <div className="flex justify-between items-center">
                   <span>Administrador:</span>
-                  <span className={adminEmail ? "text-green-600 font-mono font-bold" : "text-red-400 font-mono font-bold italic"}>
-                    {adminEmail || "Não configurado na aba Usuários"}
+                  <span className={usersInfo.adminEmail ? "text-green-600 font-mono font-bold" : "text-red-400 font-mono font-bold italic"}>
+                    {usersInfo.adminEmail || "Não configurado"}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span>OM ({formData.selectedOM || '...'}):</span>
-                  <span className={omEmail ? "text-green-600 font-mono font-bold" : "text-red-400 font-mono font-bold italic"}>
-                    {omEmail || "Não configurado na aba Usuários"}
+                  <span className={usersInfo.users.find(u => u.om === formData.selectedOM)?.email ? "text-green-600 font-mono font-bold" : "text-red-400 font-mono font-bold italic"}>
+                    {usersInfo.users.find(u => u.om === formData.selectedOM)?.email || "Não configurado"}
                   </span>
                 </div>
               </div>
@@ -736,6 +768,126 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClo
         <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end space-x-3 rounded-b-2xl">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-bold text-gray-500 hover:text-gray-700">CANCELAR</button>
           <button type="submit" form="new-map-form" disabled={isSubmitting} className="flex items-center px-6 py-2 bg-army-700 rounded-lg text-sm font-bold text-white hover:bg-army-800 disabled:opacity-50 shadow-md transition-all">
+            {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+            CRIAR MAPA
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SendMapModal: React.FC<{ data: MapData; user: User; onClose: () => void; onSuccess: (msg: string) => void }> = ({ data, user, onClose, onSuccess }) => {
+  const [aux, setAux] = useState<AuxiliarData | null>(null);
+  const [formData, setFormData] = useState({
+    mapa: data.id, 
+    evento: data.evento, 
+    ultDiaEvento: formatDateToISO(data.ultDiaEvento), 
+    valor: data.valor, 
+    docAutoriza: data.docAutoriza, 
+    nrDiex: data.nrDiex, 
+    dataDiex: formatDateToISO(data.dataDiex), 
+    observacao: data.observacao,
+    om: data.om
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetchAuxiliar().then(setAux);
+  }, []);
+
+  const handleValorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, ''); 
+    if (!value) {
+      setFormData({ ...formData, valor: '' });
+      return;
+    }
+    const amount = parseInt(value) / 100;
+    const formatted = amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    setFormData({ ...formData, valor: formatted });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.nrDiex || !formData.dataDiex) {
+      alert("Por favor, preencha os dados do DIEx de Remessa.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    // Mapeamento para atualização
+    // Precisamos encontrar os nomes exatos das colunas para o updateMap
+    // Usamos o cleanHeaders do data para encontrar as chaves
+    const getHeader = (pattern: string) => data.rawHeaders[data.cleanHeaders.findIndex(h => h.toLowerCase().includes(pattern.toLowerCase()))];
+
+    const updates: Record<string, string> = {};
+    
+    // Atualiza todos os campos permitidos
+    const mapFields = [
+      { key: 'evento', pattern: 'evento', val: formData.evento },
+      { key: 'ultDia', pattern: 'ult dia', val: formatDateToBR(formData.ultDiaEvento) },
+      { key: 'valor', pattern: 'valor', val: formData.valor },
+      { key: 'doc', pattern: 'doc que autoriza', val: formData.docAutoriza },
+      { key: 'nrDiex', pattern: 'nr diex remessa', val: formData.nrDiex },
+      { key: 'dataDiex', pattern: 'data diex remessa', val: formatDateToBR(formData.dataDiex) },
+      { key: 'obs', pattern: 'observ', val: formData.observacao }
+    ];
+
+    mapFields.forEach(f => {
+      const header = getHeader(f.pattern);
+      if (header) {
+        updates[header.replace(/[\r\n]+/g, '').trim()] = f.val;
+      }
+    });
+
+    const success = await updateMap('Controle de Mapas', data.mapColumnTitle.trim(), data.id, updates, data.rowIndex);
+    setIsSubmitting(false);
+    if (success) {
+      onSuccess("Mapa enviado para a Brigada com sucesso!");
+      onClose();
+    } else {
+      alert("Erro ao enviar mapa.");
+    }
+  };
+
+  if (!aux) return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"><Loader2 className="animate-spin text-white w-10 h-10" /></div>;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col relative" onClick={e => e.stopPropagation()}>
+        <div className="p-6 bg-army-800 text-white flex justify-between items-center rounded-t-2xl">
+          <div><h3 className="text-lg font-bold uppercase tracking-tight">Enviar Mapa para a Brigada</h3><p className="text-xs text-army-200">{data.id}</p></div>
+          <button onClick={onClose} className="p-1 hover:bg-army-700 rounded-full"><X className="w-6 h-6" /></button>
+        </div>
+        <div className="overflow-y-auto p-6 relative">
+          <form id="send-map-form" onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Mapa (Mês/Ano)</label>
+                <input disabled type="text" className="w-full p-2 border border-gray-200 bg-gray-100 rounded-lg text-sm cursor-not-allowed" value={formData.mapa} />
+              </div>
+              <div>
+                <label className="flex items-center text-xs font-bold text-gray-500 uppercase mb-1">Evento</label>
+                <select required className="w-full p-2.5 border border-gray-300 rounded-lg text-sm bg-white" value={formData.evento} onChange={e => setFormData({...formData, evento: e.target.value})}>
+                  <option value="">Selecione...</option>
+                  {aux.eventos.map(ev => <option key={ev} value={ev}>{ev}</option>)}
+                </select>
+              </div>
+              <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Últ. Dia Evento</label><input required type="date" className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.ultDiaEvento} onChange={e => setFormData({...formData, ultDiaEvento: e.target.value})} /></div>
+              <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Valor Total (R$)</label><input required type="text" placeholder="0,00" className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.valor} onChange={handleValorChange} /></div>
+              <div className="md:col-span-2"><label className="flex items-center text-xs font-bold text-gray-500 uppercase mb-1">Documento que autoriza o Evento</label><input required type="text" placeholder="Ex: DIM CML, OS Nr 123-Sec..." className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.docAutoriza} onChange={e => setFormData({...formData, docAutoriza: e.target.value})} /></div>
+              
+              {/* Campos agora editáveis */}
+              <div><label className="flex items-center text-xs font-bold text-gray-700 uppercase mb-1">Nr DIEx Remessa</label><input required type="text" placeholder="Somente números" className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-army-500" value={formData.nrDiex} onChange={e => setFormData({...formData, nrDiex: e.target.value.replace(/\D/g, '')})} /></div>
+              <div><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Data DIEx</label><input required type="date" className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-army-500" value={formData.dataDiex} onChange={e => setFormData({...formData, dataDiex: e.target.value})} /></div>
+              <div className="md:col-span-2"><label className="block text-xs font-bold text-gray-700 uppercase mb-1">Observações Adicionais</label><textarea rows={3} className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-army-500" value={formData.observacao} onChange={e => setFormData({...formData, observacao: e.target.value})} /></div>
+            </div>
+          </form>
+        </div>
+        <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-end space-x-3 rounded-b-2xl">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-bold text-gray-500 hover:text-gray-700">CANCELAR</button>
+          <button type="submit" form="send-map-form" disabled={isSubmitting} className="flex items-center px-6 py-2 bg-army-700 rounded-lg text-sm font-bold text-white hover:bg-army-800 disabled:opacity-50 shadow-md transition-all">
             {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
             ENVIAR PARA A BRIGADA
           </button>
@@ -749,24 +901,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [data, setData] = useState<MapData[]>([]);
   const [auxData, setAuxData] = useState<AuxiliarData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedMap, setSelectedMap] = useState<MapData | null>(null);
-  const [editingMap, setEditingMap] = useState<MapData | null>(null); 
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isReportMenuOpen, setIsReportMenuOpen] = useState(false);
-  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
-  const [isAdvancedReportOpen, setIsAdvancedReportOpen] = useState(false); // Novo State
-  const [sortConfig, setSortConfig] = useState<{ key: keyof MapData, direction: 'asc' | 'desc' } | null>(null);
-  const [filterMapa, setFilterMapa] = useState(''); 
-  const [filterOM, setFilterOM] = useState(user.role === UserRole.OM ? user.om! : '');
-  const [filterAno, setFilterAno] = useState(''); 
-  const [filterEventos, setFilterEventos] = useState<string[]>([]);
-  const [filterStatus, setFilterStatus] = useState<string[]>([]);
-  
-  // States para o modal de exclusão
-  const [mapToDelete, setMapToDelete] = useState<MapData | null>(null);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -795,7 +930,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     setIsDeleteModalOpen(false);
     setMapToDelete(null);
     if (success) {
-      alert("Mapa excluído com sucesso!");
+      setSuccessMessage("Mapa excluído com sucesso!");
       loadData();
     } else {
       alert("Erro ao excluir mapa.");
@@ -820,12 +955,28 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
   const filteredData = useMemo(() => {
     let filtered = data.filter(item => {
+      // Filtro de segurança por OM
       if (user.role === UserRole.OM && item.om.trim() !== user.om) return false;
+      
+      // Filtro de "Rascunho": Se não tem DIEx, a Brigada (Admin) não deve ver ainda.
+      // "Feito isso, este mapa está disponível somente para a OM visualisar."
+      if (user.role === UserRole.ADMIN && (!item.nrDiex || item.nrDiex.trim() === '')) return false;
+
       if (filterOM && !item.om.toLowerCase().includes(filterOM.toLowerCase())) return false;
       if (filterMapa && !item.id.toLowerCase().includes(filterMapa.toLowerCase())) return false;
       if (filterAno && extractYear(item.id) !== filterAno) return false;
       if (filterEventos.length > 0 && !filterEventos.includes(item.evento)) return false;
-      if (filterStatus.length > 0 && !filterStatus.includes(item.situacao)) return false;
+      if (filterStatus.length > 0) {
+        // Lógica especial para filtrar "Não encaminhado à Bda"
+        const hasNaoEncaminhado = filterStatus.some(s => s.toLowerCase().includes('não encaminhado') || s.toLowerCase().includes('nao encaminhado'));
+        
+        if (hasNaoEncaminhado && (!item.nrDiex || item.nrDiex.trim() === '')) {
+            // Se o filtro inclui "Não encaminhado" e o item é rascunho, passa
+            return true;
+        }
+        
+        if (!filterStatus.includes(item.situacao)) return false;
+      }
       return true;
     });
 
@@ -919,10 +1070,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
   return (
     <div className="min-h-screen bg-gray-100 font-sans pb-10">
+      {successMessage && <SuccessModal message={successMessage} onClose={() => setSuccessMessage(null)} />}
       {selectedMap && <DetailsModal data={selectedMap} onClose={() => setSelectedMap(null)} />}
-      {editingMap && <EditMapModal data={editingMap} auxData={auxData} onClose={() => { setEditingMap(null); loadData(); }} />}
-      {isFormOpen && <NewMapForm user={user} onClose={() => { setIsFormOpen(false); loadData(); }} />}
-      {isChangePasswordOpen && <ChangePasswordModal user={user} onClose={() => setIsChangePasswordOpen(false)} />}
+      {editingMap && <EditMapModal data={editingMap} auxData={auxData} onClose={() => { setEditingMap(null); loadData(); }} onSuccess={setSuccessMessage} />}
+      {sendingMap && <SendMapModal data={sendingMap} user={user} onClose={() => { setSendingMap(null); loadData(); }} onSuccess={setSuccessMessage} />}
+      {isFormOpen && <NewMapForm user={user} onClose={() => { setIsFormOpen(false); loadData(); }} onSuccess={setSuccessMessage} />}
+      {isChangePasswordOpen && <ChangePasswordModal user={user} onClose={() => setIsChangePasswordOpen(false)} onSuccess={setSuccessMessage} />}
       {isAdvancedReportOpen && <ReportsModal data={filteredData} onClose={() => setIsAdvancedReportOpen(false)} />}
       
       {/* Modal de Exclusão separado */}
@@ -998,7 +1151,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               </div>
             )}
             <MultiSelect label="Eventos..." options={auxData?.eventos || []} selected={filterEventos} onChange={setFilterEventos} icon={Filter} />
-            <MultiSelect label="Status..." options={Array.from(new Set(data.map(d => d.situacao))).sort()} selected={filterStatus} onChange={setFilterStatus} icon={Filter} />
+            <MultiSelect label="Situação..." options={Array.from(new Set(data.map(d => d.situacao))).sort()} selected={filterStatus} onChange={setFilterStatus} icon={Filter} />
           </div>
         </div>
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
@@ -1017,44 +1170,61 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 </tr>
               </thead>
               <tbody className="text-xs">
-                {filteredData.map((row, idx) => (
-                  <tr 
-                    key={idx} 
-                    className={`border-b border-gray-100 transition duration-100 cursor-pointer ${getRowStyle(row.situacao, idx)}`}
-                    onClick={() => setSelectedMap(row)}
-                  >
-                    <td className="p-4 font-mono font-bold uppercase">{row.id}</td>
-                    {user.role === UserRole.ADMIN && <td className="p-4 font-bold">{row.om}</td>}
-                    <td className="p-4">
-                      <div className="font-bold uppercase">{row.evento}</div>
-                      <div className="text-[10px] opacity-60 flex items-center mt-1"><Calendar className="w-3 h-3 mr-1" /> {row.ultDiaEvento}</div>
-                    </td>
-                    <td className="p-4 font-bold">{row.valor}</td>
-                    <td className="p-4 hidden lg:table-cell opacity-70 font-mono text-[10px]">{row.nrDiex}</td>
-                    <td className="p-4 hidden lg:table-cell opacity-70 font-mono text-[10px]">{row.dataDiex}</td>
-                    <td className="p-4">
-                      {row.situacao.toLowerCase().includes('devolvido') || row.situacao.toLowerCase().includes('cancelado') ? (
-                        <span className="font-bold uppercase tracking-tighter text-[10px] px-2 py-0.5 border border-white/40 rounded bg-white/10">{row.situacao}</span>
-                      ) : <StatusBadge status={row.situacao} />}
-                    </td>
-                    <td className="p-3 text-center flex justify-center space-x-1" onClick={e => e.stopPropagation()}>
-                      <button onClick={(e) => { e.stopPropagation(); setSelectedMap(row); }} className="p-1.5 rounded-full hover:bg-army-100 text-army-700 transition" title="Ver Detalhes"><Eye className="w-4 h-4" /></button>
-                      {user.role === UserRole.ADMIN && (
-                        <>
-                          <button onClick={(e) => { e.stopPropagation(); setEditingMap(row); }} className="p-1.5 rounded-full hover:bg-blue-100 text-blue-700 transition" title="Editar Processo"><Pencil className="w-4 h-4" /></button>
+                {filteredData.map((row, idx) => {
+                  const isDraft = !row.nrDiex || row.nrDiex.trim() === '';
+                  const displayStatus = isDraft ? "Não encaminhado à Bda" : row.situacao;
+                  
+                  return (
+                    <tr 
+                      key={idx} 
+                      className={`border-b border-gray-100 transition duration-100 cursor-pointer ${getRowStyle(row.situacao, idx)}`}
+                      onClick={() => setSelectedMap(row)}
+                    >
+                      <td className="p-4 font-mono font-bold uppercase">{row.id}</td>
+                      {user.role === UserRole.ADMIN && <td className="p-4 font-bold">{row.om}</td>}
+                      <td className="p-4">
+                        <div className="font-bold uppercase">{row.evento}</div>
+                        <div className="text-[10px] opacity-60 flex items-center mt-1"><Calendar className="w-3 h-3 mr-1" /> {row.ultDiaEvento}</div>
+                      </td>
+                      <td className="p-4 font-bold">{row.valor}</td>
+                      <td className="p-4 hidden lg:table-cell opacity-70 font-mono text-[10px]">{row.nrDiex}</td>
+                      <td className="p-4 hidden lg:table-cell opacity-70 font-mono text-[10px]">{row.dataDiex}</td>
+                      <td className="p-4">
+                        {displayStatus.toLowerCase().includes('devolvido') || displayStatus.toLowerCase().includes('cancelado') ? (
+                          <span className="font-bold uppercase tracking-tighter text-[10px] px-2 py-0.5 border border-white/40 rounded bg-white/10">{displayStatus}</span>
+                        ) : <StatusBadge status={displayStatus} />}
+                      </td>
+                      <td className="p-3 text-center flex justify-center space-x-1" onClick={e => e.stopPropagation()}>
+                        <button onClick={(e) => { e.stopPropagation(); setSelectedMap(row); }} className="p-1.5 rounded-full hover:bg-army-100 text-army-700 transition" title="Ver Detalhes"><Eye className="w-4 h-4" /></button>
+                        
+                        {/* Botão de Enviar para a Brigada (Apenas OM e se for Rascunho) */}
+                        {user.role === UserRole.OM && isDraft && (
                           <button 
-                            onClick={(e) => handleDeleteClick(row, e)} 
-                            disabled={deletingId === row.id} 
-                            className="p-1.5 rounded-full hover:bg-red-100 text-red-700 transition disabled:opacity-50" 
-                            title="Excluir Mapa"
+                            onClick={(e) => { e.stopPropagation(); setSendingMap(row); }} 
+                            className="p-1.5 rounded-full hover:bg-green-100 text-green-700 transition animate-pulse" 
+                            title="Enviar Mapa para a Brigada"
                           >
-                            {deletingId === row.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                            <Send className="w-4 h-4" />
                           </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                        )}
+
+                        {user.role === UserRole.ADMIN && (
+                          <>
+                            <button onClick={(e) => { e.stopPropagation(); setEditingMap(row); }} className="p-1.5 rounded-full hover:bg-blue-100 text-blue-700 transition" title="Editar Processo"><Pencil className="w-4 h-4" /></button>
+                            <button 
+                              onClick={(e) => handleDeleteClick(row, e)} 
+                              disabled={deletingId === row.id} 
+                              className="p-1.5 rounded-full hover:bg-red-100 text-red-700 transition disabled:opacity-50" 
+                              title="Excluir Mapa"
+                            >
+                              {deletingId === row.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

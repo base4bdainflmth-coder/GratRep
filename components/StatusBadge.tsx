@@ -8,7 +8,7 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
   let bgColor = 'bg-gray-100';
   let textColor = 'text-gray-800';
 
-  const normalizedStatus = status.toLowerCase().trim();
+  const normalizedStatus = (status || '').toLowerCase().trim();
 
   if (normalizedStatus.includes('aprovado')) {
     bgColor = 'bg-green-100';
@@ -25,10 +25,13 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
   } else if (normalizedStatus.includes('pendente')) {
     bgColor = 'bg-yellow-100';
     textColor = 'text-yellow-800';
+  } else if (normalizedStatus === 'não encaminhado à bda' || normalizedStatus === 'nao encaminhado a bda') {
+    bgColor = 'bg-gray-200';
+    textColor = 'text-gray-600';
   }
 
   return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium border border-transparent ${bgColor} ${textColor}`}>
+    <span className={`px-2 py-1 rounded-full text-xs font-medium border border-transparent ${bgColor} ${textColor} uppercase`}>
       {status || 'N/A'}
     </span>
   );
