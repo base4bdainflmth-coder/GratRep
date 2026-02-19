@@ -902,6 +902,26 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
   const [auxData, setAuxData] = useState<AuxiliarData | null>(null);
   const [loading, setLoading] = useState(true);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedMap, setSelectedMap] = useState<MapData | null>(null);
+  const [editingMap, setEditingMap] = useState<MapData | null>(null); 
+  const [sendingMap, setSendingMap] = useState<MapData | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isReportMenuOpen, setIsReportMenuOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isAdvancedReportOpen, setIsAdvancedReportOpen] = useState(false); 
+  const [sortConfig, setSortConfig] = useState<{ key: keyof MapData, direction: 'asc' | 'desc' } | null>(null);
+  
+  const [filterMapa, setFilterMapa] = useState(''); 
+  const [filterOM, setFilterOM] = useState(user.role === UserRole.OM ? user.om! : '');
+  const [filterAno, setFilterAno] = useState(''); 
+  const [filterEventos, setFilterEventos] = useState<string[]>([]);
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
+  
+  const [mapToDelete, setMapToDelete] = useState<MapData | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
