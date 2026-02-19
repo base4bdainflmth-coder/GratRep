@@ -121,7 +121,7 @@ const AdminConfigModal: React.FC<{ onClose: () => void; onSuccess: (msg: string)
         setAdminPassword(usersData.adminPassword || '');
       } catch (err) {
         console.error(err);
-        alert("Erro ao carregar configurações.");
+        onSuccess("Erro ao carregar configurações da planilha.");
       } finally {
         setLoading(false);
       }
@@ -369,11 +369,11 @@ const ChangePasswordModal: React.FC<{ user: User; onClose: () => void; onSuccess
     e.stopPropagation();
 
     if (newPassword !== confirmPassword) {
-      alert("As senhas não coincidem.");
+      onSuccess("As senhas não coincidem."); // Usando o modal para aviso também
       return;
     }
     if (newPassword.length < 4) {
-      alert("A senha deve ter pelo menos 4 caracteres.");
+      onSuccess("A senha deve ter pelo menos 4 caracteres.");
       return;
     }
 
@@ -386,11 +386,11 @@ const ChangePasswordModal: React.FC<{ user: User; onClose: () => void; onSuccess
         onSuccess("Senha alterada com sucesso! Atualize seu login.");
         onClose();
       } else {
-        alert("Erro ao alterar senha. Verifique sua conexão e tente novamente.");
+        onSuccess("Erro ao alterar senha. Verifique sua conexão.");
       }
     } catch (error) {
       console.error(error);
-      alert("Ocorreu um erro inesperado.");
+      onSuccess("Ocorreu um erro inesperado ao trocar a senha.");
     } finally {
       setIsSubmitting(false);
     }
@@ -667,7 +667,7 @@ const EditMapModal: React.FC<{ data: MapData; auxData: AuxiliarData | null; onCl
     });
 
     if (Object.keys(updates).length === 0) {
-      alert("Nenhuma alteração detectada.");
+      onSuccess("Nenhuma alteração detectada.");
       setIsSubmitting(false);
       return;
     }
@@ -678,7 +678,7 @@ const EditMapModal: React.FC<{ data: MapData; auxData: AuxiliarData | null; onCl
       onSuccess("Processo atualizado com sucesso!");
       onClose();
     } else {
-      alert("Erro ao atualizar dados.");
+      onSuccess("Erro ao atualizar dados. Verifique sua conexão.");
     }
   };
 
@@ -821,7 +821,7 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void; onSuccess: (msg: s
     e.preventDefault();
     // Validação reduzida para a etapa de criação
     if (!formData.mapa || !formData.evento || !formData.valor || !formData.docAutoriza || !formData.selectedOM) {
-      alert("Por favor, preencha todos os campos obrigatórios (até Documento que Autoriza).");
+      onSuccess("Por favor, preencha todos os campos obrigatórios.");
       return;
     }
 
@@ -904,7 +904,7 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void; onSuccess: (msg: s
                 <label className="flex items-center text-xs font-bold text-gray-500 uppercase mb-1">Evento</label>
                 <select required className="w-full p-2.5 border border-gray-300 rounded-lg text-sm bg-white" value={formData.evento} onChange={e => setFormData({...formData, evento: e.target.value})}>
                   <option value="">Selecione...</option>
-                  {aux.eventos.map(ev => <option key={ev} value={ev}>{ev}</option>)}
+                  {aux.eventos.sort((a, b) => a.localeCompare(b)).map(ev => <option key={ev} value={ev}>{ev}</option>)}
                 </select>
               </div>
               <div><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Últ. Dia Evento</label><input required type="date" className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.ultDiaEvento} onChange={e => setFormData({...formData, ultDiaEvento: e.target.value})} /></div>
@@ -912,9 +912,9 @@ const NewMapForm: React.FC<{ user: User; onClose: () => void; onSuccess: (msg: s
               <div className="md:col-span-2"><label className="flex items-center text-xs font-bold text-gray-500 uppercase mb-1">Documento que autoriza o Evento</label><input required type="text" placeholder="Ex: DIM CML, OS Nr 123-Sec..." className="w-full p-2 border border-gray-300 rounded-lg text-sm" value={formData.docAutoriza} onChange={e => setFormData({...formData, docAutoriza: e.target.value})} /></div>
               
               {/* Campos desativados na criação */}
-              <div><label className="flex items-center text-xs font-bold text-gray-400 uppercase mb-1">Nr DIEx Remessa</label><input disabled type="text" placeholder="Somente números" className="w-full p-2 border border-gray-200 bg-gray-50 rounded-lg text-sm cursor-not-allowed" value={formData.nrDiex} /></div>
-              <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Data DIEx</label><input disabled type="date" className="w-full p-2 border border-gray-200 bg-gray-50 rounded-lg text-sm cursor-not-allowed" value={formData.dataDiex} /></div>
-              <div className="md:col-span-2"><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Observações Adicionais</label><textarea disabled rows={3} className="w-full p-2 border border-gray-200 bg-gray-50 rounded-lg text-sm cursor-not-allowed" value={formData.observacao} /></div>
+              <div><label className="flex items-center text-xs font-bold text-gray-400 uppercase mb-1">Nr DIEx Remessa</label><input disabled type="text" placeholder="Somente números" className="w-full p-2 border border-gray-200 bg-gray-50 text-gray-400 rounded-lg text-sm cursor-not-allowed" value={formData.nrDiex} /></div>
+              <div><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Data DIEx</label><input disabled type="date" className="w-full p-2 border border-gray-200 bg-gray-50 text-gray-400 rounded-lg text-sm cursor-not-allowed opacity-50" value={formData.dataDiex} /></div>
+              <div className="md:col-span-2"><label className="block text-xs font-bold text-gray-400 uppercase mb-1">Observações Adicionais</label><textarea disabled rows={3} className="w-full p-2 border border-gray-200 bg-gray-50 text-gray-400 rounded-lg text-sm cursor-not-allowed" value={formData.observacao} /></div>
             </div>
 
             <div className="text-[10px] text-gray-500 mt-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
@@ -983,7 +983,7 @@ const SendMapModal: React.FC<{ data: MapData; user: User; onClose: () => void; o
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nrDiex || !formData.dataDiex) {
-      alert("Por favor, preencha os dados do DIEx de Remessa.");
+      onSuccess("Por favor, preencha os dados do DIEx de Remessa.");
       return;
     }
 
@@ -1020,7 +1020,7 @@ const SendMapModal: React.FC<{ data: MapData; user: User; onClose: () => void; o
       onSuccess("Mapa enviado para a Brigada com sucesso!");
       onClose();
     } else {
-      alert("Erro ao enviar mapa.");
+      onSuccess("Erro ao enviar mapa. Verifique sua conexão.");
     }
   };
 
