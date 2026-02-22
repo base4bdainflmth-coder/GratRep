@@ -21,17 +21,20 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status }) => {
     textColor = 'text-white';
   } else if (normalizedStatus.includes('cancelado')) {
     bgColor = 'bg-[#ba3838]';
-    textColor = 'text-white'; 
+    textColor = 'text-white';
   } else if (normalizedStatus.includes('pendente')) {
     bgColor = 'bg-yellow-100';
     textColor = 'text-yellow-800';
   } else if (normalizedStatus === 'não encaminhado à bda' || normalizedStatus === 'nao encaminhado a bda') {
-    bgColor = 'bg-gray-200';
-    textColor = 'text-gray-600';
+    bgColor = 'bg-red-50 border-red-200';
+    textColor = 'text-red-700 font-bold';
+  } else if (normalizedStatus.includes('pagamento autorizado') || normalizedStatus.includes('aprovado')) {
+    bgColor = 'bg-emerald-100 border-emerald-200';
+    textColor = 'text-emerald-800 font-bold';
   }
 
   return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium border border-transparent ${bgColor} ${textColor}`}>
+    <span className={`px-2 py-1 rounded-full text-xs font-medium border ${bgColor.includes('border') ? bgColor : `border-transparent ${bgColor}`} ${textColor}`}>
       {status || 'N/A'}
     </span>
   );
